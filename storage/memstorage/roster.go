@@ -5,9 +5,7 @@
 
 package memstorage
 
-import (
-	"github.com/ortuman/jackal/model/rostermodel"
-)
+import rostermodel "github.com/ortuman/jackal/model/roster"
 
 // InsertOrUpdateRosterItem inserts a new roster item entity into storage,
 // or updates it in case it's been previously inserted.
