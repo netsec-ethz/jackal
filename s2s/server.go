@@ -41,7 +41,7 @@ func (s *server) start() {
 	log.Infof("s2s_in: listening at %s", address)
 
 	if err := s.listenConn(address); err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 }
 

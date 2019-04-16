@@ -56,7 +56,7 @@ func New(c *Config) *Storage {
 
 	s.db, err = sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 
 	s.db.SetMaxOpenConns(c.PoolSize) // set max opened connection count

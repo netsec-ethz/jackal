@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gobserializer "github.com/ortuman/jackal/model/gob"
-
 	"github.com/ortuman/jackal/xmpp"
 )
 

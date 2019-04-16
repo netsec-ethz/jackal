@@ -29,7 +29,7 @@ func NewMock() (*Storage, sqlmock.Sqlmock) {
 	s.db, sqlMock, err = sqlmock.New()
 
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 
 	return s, sqlMock

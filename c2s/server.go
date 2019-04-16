@@ -56,7 +56,7 @@ func (s *server) start() {
 		break
 	}
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 }
 

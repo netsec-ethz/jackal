@@ -79,7 +79,7 @@ func (x *VCard) getVCard(vCard xmpp.XElement, iq *xmpp.IQ) {
 	toJID := iq.ToJID()
 	resElem, err := storage.FetchVCard(toJID.Node())
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Error(err)
 		_ = x.router.Route(iq.InternalServerError())
 		return
 	}

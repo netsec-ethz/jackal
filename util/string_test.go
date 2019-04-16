@@ -20,3 +20,9 @@ func TestSplitKeyAndValue(t *testing.T) {
 	require.Equal(t, "", key)
 	require.Equal(t, "", value)
 }
+
+func TestStringRepeat(t *testing.T) {
+	require.Equal(t, "", StringRepeat("%v", "-", 0))
+	require.Equal(t, "%v", StringRepeat("%v", "-", 1))
+	require.Equal(t, "%v-%v", StringRepeat("%v", "-", 2))
+}

@@ -52,12 +52,12 @@ func New(cfg *Config) *Storage {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true", user, pass, host, db)
 	s.db, err = sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 	s.db.SetMaxOpenConns(poolSize) // set max opened connection count
 
 	if err := s.db.Ping(); err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 	go s.loop()
 

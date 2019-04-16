@@ -41,14 +41,14 @@ func New(cfg *Config) *Storage {
 		doneCh: make(chan chan bool),
 	}
 	if err := os.MkdirAll(filepath.Dir(cfg.DataDir), os.ModePerm); err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 	opts := badger.DefaultOptions
 	opts.Dir = cfg.DataDir
 	opts.ValueDir = cfg.DataDir
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Fatal(err)
 	}
 	b.db = db
 	go b.loop()

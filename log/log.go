@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ortuman/jackal/util"
 )
 
 const logChanBufferSize = 2048
@@ -63,11 +65,27 @@ func Debugf(format string, args ...interface{}) {
 	}
 }
 
+// Debug writes a set of arguments to the configured 'debug' logger.
+func Debug(args ...interface{}) {
+	if inst := instance(); inst.Level() <= DebugLevel {
+		ci := getCallerInfo()
+		inst.Log(DebugLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
+	}
+}
+
 // Infof writes a 'info' message to configured logger.
 func Infof(format string, args ...interface{}) {
 	if inst := instance(); inst.Level() <= InfoLevel {
 		ci := getCallerInfo()
 		inst.Log(InfoLevel, ci.pkg, ci.filename, ci.line, format, args...)
+	}
+}
+
+// Info writes a set of arguments to the configured 'info' logger.
+func Info(args ...interface{}) {
+	if inst := instance(); inst.Level() <= InfoLevel {
+		ci := getCallerInfo()
+		inst.Log(InfoLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
 	}
 }
 
@@ -79,11 +97,27 @@ func Warnf(format string, args ...interface{}) {
 	}
 }
 
+// Warn writes a set of arguments to the configured 'warning' logger.
+func Warn(args ...interface{}) {
+	if inst := instance(); inst.Level() <= WarningLevel {
+		ci := getCallerInfo()
+		inst.Log(WarningLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
+	}
+}
+
 // Errorf writes an 'error' message to configured logger.
 func Errorf(format string, args ...interface{}) {
 	if inst := instance(); inst.Level() <= ErrorLevel {
 		ci := getCallerInfo()
 		inst.Log(ErrorLevel, ci.pkg, ci.filename, ci.line, format, args...)
+	}
+}
+
+// Error writes a set of arguments to the configured 'error' logger.
+func Error(args ...interface{}) {
+	if inst := instance(); inst.Level() <= ErrorLevel {
+		ci := getCallerInfo()
+		inst.Log(ErrorLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
 	}
 }
 
@@ -97,20 +131,12 @@ func Fatalf(format string, args ...interface{}) {
 	return
 }
 
-// Error writes an error value to configured logger.
-func Error(err error) {
-	if inst := instance(); inst.Level() <= ErrorLevel {
-		ci := getCallerInfo()
-		inst.Log(ErrorLevel, ci.pkg, ci.filename, ci.line, "%v", err)
-	}
-}
-
-// Fatal writes an error value to configured logger.
+// Fatal writes a set of arguments value to the configured logger.
 // Application should terminate after logging.
-func Fatal(err error) {
+func Fatal(args ...interface{}) {
 	if inst := instance(); inst.Level() <= FatalLevel {
 		ci := getCallerInfo()
-		inst.Log(FatalLevel, ci.pkg, ci.filename, ci.line, "%v", err)
+		inst.Log(FatalLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
 	}
 }
 
