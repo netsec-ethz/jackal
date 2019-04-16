@@ -107,12 +107,10 @@ func NewPresence(from *jid.JID, to *jid.JID, presenceType string) *Presence {
 }
 
 // NewPresenceFromGob creates and returns a new Presence element from a given gob decoder.
-func NewPresenceFromGob(dec *gob.Decoder) (*Presence, error) {
+func NewPresenceFromGob(dec *gob.Decoder) *Presence {
 	p := &Presence{}
-	if err := p.FromGob(dec); err != nil {
-		return nil, err
-	}
-	return p, nil
+	p.FromGob(dec)
+	return p
 }
 
 // IsAvailable returns true if this is an 'available' type Presence.

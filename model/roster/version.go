@@ -5,7 +5,11 @@
 
 package rostermodel
 
-import "encoding/gob"
+import (
+	"encoding/gob"
+
+	gobserializer "github.com/ortuman/jackal/model/gob"
+)
 
 // Version represents a roster version info.
 type Version struct {
@@ -15,15 +19,14 @@ type Version struct {
 
 // FromGob deserializes a Version entity
 // from it's gob binary representation.
-func (rv *Version) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&rv.Ver)
-	dec.Decode(&rv.DeletionVer)
-	return nil
+func (rv *Version) FromGob(dec *gob.Decoder) {
+	gobserializer.Decode(dec, &rv.Ver)
+	gobserializer.Decode(dec, &rv.DeletionVer)
 }
 
 // ToGob converts a Version entity
 // to it's gob binary representation.
 func (rv *Version) ToGob(enc *gob.Encoder) {
-	enc.Encode(&rv.Ver)
-	enc.Encode(&rv.DeletionVer)
+	gobserializer.Encode(enc, rv.Ver)
+	gobserializer.Encode(enc, &rv.DeletionVer)
 }

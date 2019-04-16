@@ -70,12 +70,10 @@ func NewIQType(identifier string, iqType string) *IQ {
 }
 
 // NewIQFromGob creates and returns a new IQ element from a given gob decoder.
-func NewIQFromGob(dec *gob.Decoder) (*IQ, error) {
+func NewIQFromGob(dec *gob.Decoder) *IQ {
 	iq := &IQ{}
-	if err := iq.FromGob(dec); err != nil {
-		return nil, err
-	}
-	return iq, nil
+	iq.FromGob(dec)
+	return iq
 }
 
 // IsGet returns true if this is a 'get' type IQ.

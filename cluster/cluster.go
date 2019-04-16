@@ -207,10 +207,7 @@ func (c *Cluster) handleNotifyMsg(msg []byte) {
 	}
 	var m Message
 	dec := gob.NewDecoder(bytes.NewReader(msg))
-	if err := m.FromGob(dec); err != nil {
-		log.Error(err)
-		return
-	}
+	m.FromGob(dec)
 	if c.delegate != nil {
 		c.delegate.NotifyMessage(&m)
 	}

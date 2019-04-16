@@ -26,7 +26,7 @@ func TestMessageSerialization(t *testing.T) {
 	}
 	m1.ToGob(gob.NewEncoder(buf))
 
-	require.Nil(t, m2.FromGob(gob.NewDecoder(buf)))
+	m2.FromGob(gob.NewDecoder(buf))
 	require.Equal(t, m1.Type, m2.Type)
 	require.Equal(t, m1.Node, m2.Node)
 
@@ -43,7 +43,7 @@ func TestMessageSerialization(t *testing.T) {
 	buf.Reset()
 	m1.ToGob(gob.NewEncoder(buf))
 
-	require.Nil(t, m2.FromGob(gob.NewDecoder(buf)))
+	m2.FromGob(gob.NewDecoder(buf))
 	require.Equal(t, m1.Type, m2.Type)
 	require.Equal(t, m1.Node, m2.Node)
 	require.Equal(t, 1, len(m2.Payloads))
@@ -61,7 +61,7 @@ func TestMessageSerialization(t *testing.T) {
 	buf.Reset()
 	m1.ToGob(gob.NewEncoder(buf))
 
-	require.Nil(t, m2.FromGob(gob.NewDecoder(buf)))
+	m2.FromGob(gob.NewDecoder(buf))
 	_, ok = m2.Payloads[0].Stanza.(*xmpp.IQ)
 	require.True(t, ok)
 
@@ -69,7 +69,7 @@ func TestMessageSerialization(t *testing.T) {
 	buf.Reset()
 	m1.ToGob(gob.NewEncoder(buf))
 
-	require.Nil(t, m2.FromGob(gob.NewDecoder(buf)))
+	m2.FromGob(gob.NewDecoder(buf))
 	_, ok = m2.Payloads[0].Stanza.(*xmpp.Message)
 	require.True(t, ok)
 }

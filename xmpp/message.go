@@ -60,12 +60,10 @@ func NewMessageType(identifier string, messageType string) *Message {
 }
 
 // NewMessageFromGob creates and returns a new Message element from a given gob decoder.
-func NewMessageFromGob(dec *gob.Decoder) (*Message, error) {
+func NewMessageFromGob(dec *gob.Decoder) *Message {
 	m := &Message{}
-	if err := m.FromGob(dec); err != nil {
-		return nil, err
-	}
-	return m, nil
+	m.FromGob(dec)
+	return m
 }
 
 // IsNormal returns true if this is a 'normal' type Message.

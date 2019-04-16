@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
+
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
@@ -109,25 +111,24 @@ func (ri *Item) ContactJID() *jid.JID {
 }
 
 // FromGob deserializes a RosterItem entity from it's gob binary representation.
-func (ri *Item) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&ri.Username)
-	dec.Decode(&ri.JID)
-	dec.Decode(&ri.Name)
-	dec.Decode(&ri.Subscription)
-	dec.Decode(&ri.Ask)
-	dec.Decode(&ri.Ver)
-	dec.Decode(&ri.Groups)
-	return nil
+func (ri *Item) FromGob(dec *gob.Decoder) {
+	gobserializer.Decode(dec, &ri.Username)
+	gobserializer.Decode(dec, &ri.JID)
+	gobserializer.Decode(dec, &ri.Name)
+	gobserializer.Decode(dec, &ri.Subscription)
+	gobserializer.Decode(dec, &ri.Ask)
+	gobserializer.Decode(dec, &ri.Ver)
+	gobserializer.Decode(dec, &ri.Groups)
 }
 
 // ToGob converts a RosterItem entity
 // to it's gob binary representation.
 func (ri *Item) ToGob(enc *gob.Encoder) {
-	enc.Encode(&ri.Username)
-	enc.Encode(&ri.JID)
-	enc.Encode(&ri.Name)
-	enc.Encode(&ri.Subscription)
-	enc.Encode(&ri.Ask)
-	enc.Encode(&ri.Ver)
-	enc.Encode(&ri.Groups)
+	gobserializer.Encode(enc, ri.Username)
+	gobserializer.Encode(enc, ri.JID)
+	gobserializer.Encode(enc, ri.Name)
+	gobserializer.Encode(enc, ri.Subscription)
+	gobserializer.Encode(enc, ri.Ask)
+	gobserializer.Encode(enc, ri.Ver)
+	gobserializer.Encode(enc, ri.Groups)
 }

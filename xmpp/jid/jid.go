@@ -13,6 +13,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
+
 	"github.com/ortuman/jackal/pool"
 	"golang.org/x/net/idna"
 	"golang.org/x/text/secure/precis"
@@ -112,12 +114,10 @@ func NewWithString(str string, skipStringPrep bool) (*JID, error) {
 }
 
 // NewFromGob constructs a JID from it's gob binary representation.
-func NewFromGob(dec *gob.Decoder) (*JID, error) {
+func NewFromGob(dec *gob.Decoder) *JID {
 	var j JID
-	if err := j.FromGob(dec); err != nil {
-		return nil, err
-	}
-	return &j, nil
+	j.FromGob(dec)
+	return &j
 }
 
 // Node returns the node, or empty string if this JID does not contain node information.
@@ -199,19 +199,19 @@ func (j *JID) String() string {
 }
 
 // FromGob deserializes a JID entity from it's gob binary representation.
-func (j *JID) FromGob(dec *gob.Decoder) error {
+func (j *JID) FromGob(dec *gob.Decoder) {
 	var node, domain, resource string
-	dec.Decode(&node)
-	dec.Decode(&domain)
-	dec.Decode(&resource)
-	return j.stringPrep(node, domain, resource)
+	gobserializer.Decode(dec, &node)
+	gobserializer.Decode(dec, &domain)
+	gobserializer.Decode(dec, &resource)
+	_ = j.stringPrep(node, domain, resource)
 }
 
 // ToGob converts a JID entity to it's gob binary representation.
 func (j *JID) ToGob(enc *gob.Encoder) {
-	enc.Encode(&j.node)
-	enc.Encode(&j.domain)
-	enc.Encode(&j.resource)
+	gobserializer.Encode(enc, j.node)
+	gobserializer.Encode(enc, j.domain)
+	gobserializer.Encode(enc, j.resource)
 }
 
 func (j *JID) stringPrep(node, domain, resource string) error {

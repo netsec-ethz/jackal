@@ -272,19 +272,12 @@ func (s *stanzaElement) SetFromJID(j *jid.JID) {
 }
 
 // FromGob deserializes a stanza element from it's gob binary representation.
-func (s *stanzaElement) FromGob(dec *gob.Decoder) error {
+func (s *stanzaElement) FromGob(dec *gob.Decoder) {
 	s.Element.FromGob(dec)
 
 	// set from and to JIDs
-	fromJID, err := jid.NewWithString(s.From(), false)
-	if err != nil {
-		return err
-	}
-	toJID, err := jid.NewWithString(s.To(), false)
-	if err != nil {
-		return err
-	}
+	fromJID, _ := jid.NewWithString(s.From(), true)
+	toJID, _ := jid.NewWithString(s.To(), true)
 	s.SetFromJID(fromJID)
 	s.SetToJID(toJID)
-	return nil
 }

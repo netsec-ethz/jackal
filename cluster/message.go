@@ -8,6 +8,8 @@ package cluster
 import (
 	"encoding/gob"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
+
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
@@ -46,49 +48,32 @@ type MessagePayload struct {
 }
 
 // FromGob reads MessagePayload fields from its gob binary representation.
-func (p *MessagePayload) FromGob(dec *gob.Decoder) error {
-	j, err := jid.NewFromGob(dec)
-	if err != nil {
-		return err
-	}
-	p.JID = j
+func (p *MessagePayload) FromGob(dec *gob.Decoder) {
+	p.JID = jid.NewFromGob(dec)
 
 	var hasContextMap bool
-	dec.Decode(&hasContextMap)
+	gobserializer.Decode(dec, &hasContextMap)
 	if hasContextMap {
 		var m map[string]interface{}
-		dec.Decode(&m)
+		gobserializer.Decode(dec, &m)
 		p.Context = m
 	}
 
 	var hasStanza bool
-	dec.Decode(&hasStanza)
+	gobserializer.Decode(dec, &hasStanza)
 	if !hasStanza {
-		return nil
+		return
 	}
 	var stanzaType int
-	dec.Decode(&stanzaType)
+	gobserializer.Decode(dec, &stanzaType)
 	switch stanzaType {
 	case messageStanza:
-		message, err := xmpp.NewMessageFromGob(dec)
-		if err != nil {
-			return err
-		}
-		p.Stanza = message
+		p.Stanza = xmpp.NewMessageFromGob(dec)
 	case presenceStanza:
-		presence, err := xmpp.NewPresenceFromGob(dec)
-		if err != nil {
-			return err
-		}
-		p.Stanza = presence
+		p.Stanza = xmpp.NewPresenceFromGob(dec)
 	case iqStanza:
-		iq, err := xmpp.NewIQFromGob(dec)
-		if err != nil {
-			return err
-		}
-		p.Stanza = iq
+		p.Stanza = xmpp.NewIQFromGob(dec)
 	}
-	return nil
 }
 
 // ToGob converts a MessagePayload instance to its gob binary representation.
@@ -96,24 +81,24 @@ func (p *MessagePayload) ToGob(enc *gob.Encoder) {
 	p.JID.ToGob(enc)
 
 	hasContextMap := p.Context != nil
-	enc.Encode(&hasContextMap)
+	gobserializer.Encode(enc, hasContextMap)
 	if hasContextMap {
-		enc.Encode(&p.Context)
+		gobserializer.Encode(enc, &p.Context)
 	}
 
 	hasStanza := p.Stanza != nil
-	enc.Encode(&hasStanza)
+	gobserializer.Encode(enc, hasStanza)
 	if !hasStanza {
 		return
 	}
 	// store stanza type
 	switch p.Stanza.(type) {
 	case *xmpp.Message:
-		enc.Encode(messageStanza)
+		gobserializer.Encode(enc, messageStanza)
 	case *xmpp.Presence:
-		enc.Encode(presenceStanza)
+		gobserializer.Encode(enc, presenceStanza)
 	case *xmpp.IQ:
-		enc.Encode(iqStanza)
+		gobserializer.Encode(enc, iqStanza)
 	default:
 		return
 	}
@@ -129,12 +114,12 @@ type Message struct {
 }
 
 // FromGob reads Message fields from its gob binary representation.
-func (m *Message) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&m.Type)
-	dec.Decode(&m.Node)
+func (m *Message) FromGob(dec *gob.Decoder) {
+	gobserializer.Decode(dec, &m.Type)
+	gobserializer.Decode(dec, &m.Node)
 
 	var pLen int
-	dec.Decode(&pLen)
+	gobserializer.Decode(dec, &pLen)
 
 	m.Payloads = nil
 	for i := 0; i < pLen; i++ {
@@ -142,14 +127,13 @@ func (m *Message) FromGob(dec *gob.Decoder) error {
 		p.FromGob(dec)
 		m.Payloads = append(m.Payloads, p)
 	}
-	return nil
 }
 
 // ToGob converts a Message instance to its gob binary representation.
 func (m *Message) ToGob(enc *gob.Encoder) {
-	enc.Encode(m.Type)
-	enc.Encode(m.Node)
-	enc.Encode(len(m.Payloads))
+	gobserializer.Encode(enc, m.Type)
+	gobserializer.Encode(enc, m.Node)
+	gobserializer.Encode(enc, len(m.Payloads))
 	for _, p := range m.Payloads {
 		p.ToGob(enc)
 	}
