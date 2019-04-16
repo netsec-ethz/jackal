@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
 
@@ -199,18 +200,17 @@ func (e *Element) ToXML(w io.Writer, includeClosing bool) {
 }
 
 // FromGob deserializes an element node from it's gob binary representation.
-func (e *Element) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&e.name)
-	dec.Decode(&e.text)
+func (e *Element) FromGob(dec *gob.Decoder) {
+	gobserializer.Decode(dec, &e.name)
+	gobserializer.Decode(dec, &e.text)
 	e.attrs.fromGob(dec)
 	e.elements.fromGob(dec)
-	return nil
 }
 
 // ToGob serializes an element node to it's gob binary representation.
 func (e *Element) ToGob(enc *gob.Encoder) {
-	enc.Encode(&e.name)
-	enc.Encode(&e.text)
+	gobserializer.Encode(enc, e.name)
+	gobserializer.Encode(enc, e.text)
 	e.attrs.toGob(enc)
 	e.elements.toGob(enc)
 }

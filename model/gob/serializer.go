@@ -18,7 +18,7 @@ type GobSerializer interface {
 
 // GobDeserializer represents a Gob deserializable entity.
 type GobDeserializer interface {
-	FromGob(dec *gob.Decoder) error
+	FromGob(dec *gob.Decoder)
 }
 
 func Encode(enc *gob.Encoder, e interface{}) {

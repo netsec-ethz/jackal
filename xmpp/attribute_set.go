@@ -7,6 +7,8 @@ package xmpp
 
 import (
 	"encoding/gob"
+
+	gobserializer "github.com/ortuman/jackal/model/gob"
 )
 
 // Attribute represents an XML node attribute (label=value).
@@ -62,19 +64,19 @@ func (as *attributeSet) copyFrom(from attributeSet) {
 
 func (as *attributeSet) fromGob(dec *gob.Decoder) {
 	var c int
-	dec.Decode(&c)
+	gobserializer.Decode(dec, &c)
 	for i := 0; i < c; i++ {
 		var attr Attribute
-		dec.Decode(&attr.Label)
-		dec.Decode(&attr.Value)
+		gobserializer.Decode(dec, &attr.Label)
+		gobserializer.Decode(dec, &attr.Value)
 		*as = append(*as, attr)
 	}
 }
 
 func (as attributeSet) toGob(enc *gob.Encoder) {
-	enc.Encode(len(as))
+	gobserializer.Encode(enc, len(as))
 	for _, attr := range as {
-		enc.Encode(&attr.Label)
-		enc.Encode(&attr.Value)
+		gobserializer.Encode(enc, attr.Label)
+		gobserializer.Encode(enc, attr.Value)
 	}
 }

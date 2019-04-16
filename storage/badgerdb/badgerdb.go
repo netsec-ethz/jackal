@@ -128,7 +128,7 @@ func (b *Storage) fetch(entity interface{}, key []byte) error {
 				if !ok {
 					return fmt.Errorf("%v: %T", errBadgerDBWrongEntityType, entity)
 				}
-				return gd.FromGob(gob.NewDecoder(bytes.NewReader(val)))
+				gd.FromGob(gob.NewDecoder(bytes.NewReader(val)))
 			}
 			return nil
 		}
@@ -149,9 +149,7 @@ func (b *Storage) fetchAll(v interface{}, prefix []byte) error {
 		if !ok {
 			return fmt.Errorf("%v: %T", errBadgerDBWrongEntityType, i)
 		}
-		if err := gd.FromGob(gob.NewDecoder(bytes.NewReader(val))); err != nil {
-			return err
-		}
+		gd.FromGob(gob.NewDecoder(bytes.NewReader(val)))
 		s.Set(reflect.Append(s, e))
 		return nil
 	})
