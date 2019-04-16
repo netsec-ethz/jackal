@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ortuman/jackal/model"
-	"github.com/ortuman/jackal/model/roster"
 	rostermodel "github.com/ortuman/jackal/model/roster"
 	"github.com/ortuman/jackal/module/roster"
 	"github.com/ortuman/jackal/router"

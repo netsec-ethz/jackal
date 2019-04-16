@@ -15,9 +15,10 @@ import (
 	"reflect"
 	"time"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
+
 	"github.com/dgraph-io/badger"
 	"github.com/ortuman/jackal/log"
-	"github.com/ortuman/jackal/model"
 	"github.com/ortuman/jackal/pool"
 )
 
@@ -81,7 +82,7 @@ func (b *Storage) loop() {
 }
 
 func (b *Storage) insertOrUpdate(entity interface{}, key []byte, tx *badger.Txn) error {
-	gs, ok := entity.(model.GobSerializer)
+	gs, ok := entity.(gobserializer.GobSerializer)
 	if !ok {
 		return fmt.Errorf("%v: %T", errBadgerDBWrongEntityType, entity)
 	}
@@ -123,7 +124,7 @@ func (b *Storage) fetch(entity interface{}, key []byte) error {
 		}
 		if val != nil {
 			if entity != nil {
-				gd, ok := entity.(model.GobDeserializer)
+				gd, ok := entity.(gobserializer.GobDeserializer)
 				if !ok {
 					return fmt.Errorf("%v: %T", errBadgerDBWrongEntityType, entity)
 				}
@@ -144,7 +145,7 @@ func (b *Storage) fetchAll(v interface{}, prefix []byte) error {
 	return b.forEachKeyAndValue(prefix, func(k, val []byte) error {
 		e := reflect.New(t.Elem()).Elem()
 		i := e.Addr().Interface()
-		gd, ok := i.(model.GobDeserializer)
+		gd, ok := i.(gobserializer.GobDeserializer)
 		if !ok {
 			return fmt.Errorf("%v: %T", errBadgerDBWrongEntityType, i)
 		}

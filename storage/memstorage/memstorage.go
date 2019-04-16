@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/ortuman/jackal/model"
+	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
 	rostermodel "github.com/ortuman/jackal/model/roster"
 	"github.com/ortuman/jackal/xmpp"
 )
@@ -33,6 +34,7 @@ type Storage struct {
 	privateXML          map[string][]xmpp.XElement
 	offlineMessages     map[string][]*xmpp.Message
 	blockListItems      map[string][]model.BlockListItem
+	pubSubNodes         map[string]*pubsubmodel.Node
 }
 
 // New returns a new in memory storage instance.
@@ -46,6 +48,7 @@ func New() *Storage {
 		privateXML:          make(map[string][]xmpp.XElement),
 		offlineMessages:     make(map[string][]*xmpp.Message),
 		blockListItems:      make(map[string][]model.BlockListItem),
+		pubSubNodes:         make(map[string]*pubsubmodel.Node),
 	}
 }
 

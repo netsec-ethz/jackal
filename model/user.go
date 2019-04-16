@@ -9,6 +9,8 @@ import (
 	"encoding/gob"
 	"time"
 
+	gobserializer "github.com/ortuman/jackal/model/gob"
+
 	"github.com/ortuman/jackal/xmpp"
 )
 
@@ -22,30 +24,30 @@ type User struct {
 
 // FromGob deserializes a User entity from it's gob binary representation.
 func (u *User) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&u.Username)
-	dec.Decode(&u.Password)
+	gobserializer.Decode(dec, &u.Username)
+	gobserializer.Decode(dec, &u.Password)
 	var hasPresence bool
-	dec.Decode(&hasPresence)
+	gobserializer.Decode(dec, &hasPresence)
 	if hasPresence {
 		p, err := xmpp.NewPresenceFromGob(dec)
 		if err != nil {
 			return err
 		}
 		u.LastPresence = p
-		dec.Decode(&u.LastPresenceAt)
+		gobserializer.Decode(dec, &u.LastPresenceAt)
 	}
 	return nil
 }
 
 // ToGob converts a User entity to it's gob binary representation.
 func (u *User) ToGob(enc *gob.Encoder) {
-	enc.Encode(&u.Username)
-	enc.Encode(&u.Password)
+	gobserializer.Encode(enc, u.Username)
+	gobserializer.Encode(enc, u.Password)
 	hasPresence := u.LastPresence != nil
-	enc.Encode(&hasPresence)
+	gobserializer.Encode(enc, hasPresence)
 	if hasPresence {
 		u.LastPresence.ToGob(enc)
 		u.LastPresenceAt = time.Now()
-		enc.Encode(&u.LastPresenceAt)
+		gobserializer.Encode(enc, &u.LastPresenceAt)
 	}
 }

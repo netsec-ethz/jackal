@@ -5,7 +5,11 @@
 
 package model
 
-import "encoding/gob"
+import (
+	"encoding/gob"
+
+	gobserializer "github.com/ortuman/jackal/model/gob"
+)
 
 // BlockListItem represents block list item storage entity.
 type BlockListItem struct {
@@ -15,14 +19,14 @@ type BlockListItem struct {
 
 // FromGob deserializes a BlockListItem entity from it's gob binary representation.
 func (bli *BlockListItem) FromGob(dec *gob.Decoder) error {
-	dec.Decode(&bli.Username)
-	dec.Decode(&bli.JID)
+	gobserializer.Decode(dec, &bli.Username)
+	gobserializer.Decode(dec, &bli.JID)
 	return nil
 }
 
 // ToGob converts a BlockListItem entity
 // to it's gob binary representation.
 func (bli *BlockListItem) ToGob(enc *gob.Encoder) {
-	enc.Encode(&bli.Username)
-	enc.Encode(&bli.JID)
+	gobserializer.Encode(enc, bli.Username)
+	gobserializer.Encode(enc, bli.JID)
 }
