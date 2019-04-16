@@ -54,89 +54,66 @@ type Logger interface {
 	io.Closer
 
 	Level() Level
-	Log(level Level, pkg string, file string, line int, format string, args ...interface{})
+	Log(level Level, logLine string)
 }
 
 // Debugf writes a 'debug' message to configured logger.
 func Debugf(format string, args ...interface{}) {
-	if inst := instance(); inst.Level() <= DebugLevel {
-		ci := getCallerInfo()
-		inst.Log(DebugLevel, ci.pkg, ci.filename, ci.line, format, args...)
-	}
+	logLevel(DebugLevel, fmt.Sprintf(format, args...))
 }
 
 // Debug writes a set of arguments to the configured 'debug' logger.
 func Debug(args ...interface{}) {
-	if inst := instance(); inst.Level() <= DebugLevel {
-		ci := getCallerInfo()
-		inst.Log(DebugLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
-	}
+	logLevel(DebugLevel, fmt.Sprintf(util.StringRepeat("%v", " ", len(args)), args...))
 }
 
 // Infof writes a 'info' message to configured logger.
 func Infof(format string, args ...interface{}) {
-	if inst := instance(); inst.Level() <= InfoLevel {
-		ci := getCallerInfo()
-		inst.Log(InfoLevel, ci.pkg, ci.filename, ci.line, format, args...)
-	}
+	logLevel(InfoLevel, fmt.Sprintf(format, args...))
 }
 
 // Info writes a set of arguments to the configured 'info' logger.
 func Info(args ...interface{}) {
-	if inst := instance(); inst.Level() <= InfoLevel {
-		ci := getCallerInfo()
-		inst.Log(InfoLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
-	}
+	logLevel(InfoLevel, fmt.Sprintf(util.StringRepeat("%v", " ", len(args)), args...))
 }
 
 // Warnf writes a 'warning' message to configured logger.
 func Warnf(format string, args ...interface{}) {
-	if inst := instance(); inst.Level() <= WarningLevel {
-		ci := getCallerInfo()
-		inst.Log(WarningLevel, ci.pkg, ci.filename, ci.line, format, args...)
-	}
+	logLevel(WarningLevel, fmt.Sprintf(format, args...))
 }
 
 // Warn writes a set of arguments to the configured 'warning' logger.
 func Warn(args ...interface{}) {
-	if inst := instance(); inst.Level() <= WarningLevel {
-		ci := getCallerInfo()
-		inst.Log(WarningLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
-	}
+	logLevel(WarningLevel, fmt.Sprintf(util.StringRepeat("%v", " ", len(args)), args...))
 }
 
 // Errorf writes an 'error' message to configured logger.
 func Errorf(format string, args ...interface{}) {
-	if inst := instance(); inst.Level() <= ErrorLevel {
-		ci := getCallerInfo()
-		inst.Log(ErrorLevel, ci.pkg, ci.filename, ci.line, format, args...)
-	}
+	logLevel(ErrorLevel, fmt.Sprintf(format, args...))
 }
 
 // Error writes a set of arguments to the configured 'error' logger.
 func Error(args ...interface{}) {
-	if inst := instance(); inst.Level() <= ErrorLevel {
-		ci := getCallerInfo()
-		inst.Log(ErrorLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
-	}
+	logLevel(ErrorLevel, fmt.Sprintf(util.StringRepeat("%v", " ", len(args)), args...))
 }
 
 // Fatalf writes a 'fatal' message to configured logger.
 // Application should terminate after logging.
 func Fatalf(format string, args ...interface{}) {
-	if inst := instance(); inst.Level() <= FatalLevel {
-		ci := getCallerInfo()
-		inst.Log(FatalLevel, ci.pkg, ci.filename, ci.line, format, args...)
-	}
-	return
+	logLevel(FatalLevel, fmt.Sprintf(format, args...))
 }
 
 // Fatal writes a set of arguments value to the configured logger.
 // Application should terminate after logging.
 func Fatal(args ...interface{}) {
-	if inst := instance(); inst.Level() <= FatalLevel {
+	logLevel(FatalLevel, fmt.Sprintf(util.StringRepeat("%v", " ", len(args)), args...))
+}
+
+func logLevel(level Level, log string) {
+	if inst := instance(); inst.Level() <= level {
 		ci := getCallerInfo()
-		inst.Log(FatalLevel, ci.pkg, ci.filename, ci.line, util.StringRepeat("%v", " ", len(args)), args)
+		logLine := formatLogLine(level, ci.pkg, ci.filename, ci.line, log)
+		inst.Log(level, logLine)
 	}
 }
 
@@ -179,11 +156,7 @@ type callerInfo struct {
 }
 
 type record struct {
-	level      Level
-	pkg        string
-	file       string
-	line       int
-	log        string
+	logLine    string
 	continueCh chan struct{}
 }
 
@@ -191,7 +164,6 @@ type logger struct {
 	level  Level
 	output io.Writer
 	files  []io.WriteCloser
-	b      strings.Builder
 	recCh  chan record
 }
 
@@ -215,19 +187,16 @@ func (l *logger) Level() Level {
 	return l.level
 }
 
-func (l *logger) Log(level Level, pkg string, file string, line int, format string, args ...interface{}) {
+func (l *logger) Log(level Level, logLine string) {
 	entry := record{
-		level:      level,
-		pkg:        pkg,
-		file:       file,
-		line:       line,
-		log:        fmt.Sprintf(format, args...),
+		logLine:    logLine,
 		continueCh: make(chan struct{}),
 	}
 	select {
 	case l.recCh <- entry:
 		if level == FatalLevel {
 			<-entry.continueCh // wait until done
+			exitHandler()
 		}
 	default:
 		break // avoid blocking...
@@ -250,34 +219,10 @@ func (l *logger) loop() {
 				}
 				return
 			}
-			l.b.Reset()
 
-			l.b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
-			l.b.WriteString(" ")
-			l.b.WriteString(logLevelGlyph(rec.level))
-			l.b.WriteString(" [")
-			l.b.WriteString(logLevelAbbreviation(rec.level))
-			l.b.WriteString("] ")
-
-			l.b.WriteString(rec.pkg)
-			if len(rec.pkg) > 0 {
-				l.b.WriteString("/")
-			}
-			l.b.WriteString(rec.file)
-			l.b.WriteString(":")
-			l.b.WriteString(strconv.Itoa(rec.line))
-			l.b.WriteString(" - ")
-			l.b.WriteString(rec.log)
-			l.b.WriteString("\n")
-
-			line := l.b.String()
-
-			_, _ = fmt.Fprintf(l.output, line)
+			_, _ = fmt.Fprintf(l.output, rec.logLine)
 			for _, w := range l.files {
-				_, _ = fmt.Fprintf(w, line)
-			}
-			if rec.level == FatalLevel {
-				exitHandler()
+				_, _ = fmt.Fprintf(w, rec.logLine)
 			}
 			close(rec.continueCh)
 		}
@@ -300,6 +245,30 @@ func getCallerInfo() callerInfo {
 		ci.pkg = "???"
 	}
 	return ci
+}
+
+func formatLogLine(level Level, pkg string, file string, line int, log string) string {
+	var b strings.Builder
+
+	b.WriteString(time.Now().Format("2006-01-02 15:04:05"))
+	b.WriteString(" ")
+	b.WriteString(logLevelGlyph(level))
+	b.WriteString(" [")
+	b.WriteString(logLevelAbbreviation(level))
+	b.WriteString("] ")
+
+	b.WriteString(pkg)
+	if len(pkg) > 0 {
+		b.WriteString("/")
+	}
+	b.WriteString(file)
+	b.WriteString(":")
+	b.WriteString(strconv.Itoa(line))
+	b.WriteString(" - ")
+	b.WriteString(log)
+	b.WriteString("\n")
+
+	return b.String()
 }
 
 func logLevelAbbreviation(level Level) string {
