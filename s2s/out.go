@@ -47,6 +47,7 @@ type outStream struct {
 }
 
 func newOutStream(router *router.Router) *outStream {
+
 	return &outStream{
 		id:       nextOutID(),
 		router:   router,
@@ -168,14 +169,21 @@ func (s *outStream) handleConnected(elem xmpp.XElement) {
 		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
 		return
 	}
+
+	atomic.StoreUint32(&s.secured, 1) //HACK, avoid isSecured for SCION nicely
+	atomic.StoreUint32(&s.authenticated, 1)
 	if !s.isSecured() {
-		if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
-			// unsecured channels not supported
-			s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
-			return
+		if s.cfg.streamSCION {
+			atomic.StoreUint32(&s.secured, 1)
+		} else {
+			if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
+				// unsecured channels not supported
+				s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
+				return
+			}
+			s.setState(outSecuring)
+			s.writeElement(xmpp.NewElementNamespace("starttls", tlsNamespace))
 		}
-		s.setState(outSecuring)
-		s.writeElement(xmpp.NewElementNamespace("starttls", tlsNamespace))
 
 	} else {
 		// authorize dialback key

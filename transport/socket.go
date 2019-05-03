@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lucas-clemente/quic-go"
+	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/transport/compress"
 )
 
@@ -21,11 +23,13 @@ const socketBuffSize = 4096
 
 type socketTransport struct {
 	conn       net.Conn
+	connQUIC   quic.Session
 	rw         io.ReadWriter
 	br         *bufio.Reader
 	bw         *bufio.Writer
 	keepAlive  time.Duration
 	compressed bool
+	isQUIC     bool
 }
 
 // NewSocketTransport creates a socket class stream transport.
@@ -40,11 +44,28 @@ func NewSocketTransport(conn net.Conn, keepAlive time.Duration) Transport {
 	return s
 }
 
+func NewQUICSocketTransport(conn quic.Session, uniStream quic.Stream,
+	keepAlive time.Duration, connQUIC bool) Transport {
+	s := &socketTransport{
+		connQUIC:  conn,
+		rw:        uniStream,
+		br:        bufio.NewReaderSize(uniStream, socketBuffSize),
+		bw:        bufio.NewWriterSize(uniStream, socketBuffSize),
+		keepAlive: keepAlive,
+		isQUIC:    connQUIC,
+	}
+	return s
+}
+
 func (s *socketTransport) Read(p []byte) (n int, err error) {
-	if s.keepAlive > 0 {
+	if s.keepAlive > 0 && !s.isQUIC {
 		s.conn.SetReadDeadline(time.Now().Add(s.keepAlive))
 	}
-	return s.br.Read(p)
+	n, err = s.br.Read(p)
+	if err != nil {
+		log.Infof("Error reading the byte stream")
+	}
+	return n, err
 }
 
 func (s *socketTransport) Write(p []byte) (n int, err error) {
@@ -53,6 +74,9 @@ func (s *socketTransport) Write(p []byte) (n int, err error) {
 }
 
 func (s *socketTransport) Close() error {
+	if s.isQUIC {
+		return s.connQUIC.Close()
+	}
 	return s.conn.Close()
 }
 
@@ -67,6 +91,11 @@ func (s *socketTransport) WriteString(str string) (int, error) {
 }
 
 func (s *socketTransport) StartTLS(cfg *tls.Config, asClient bool) {
+	//NOTE!! GET RID OF THIS
+	log.Infof("Starting TLS")
+	if s.isQUIC {
+		return
+	}
 	if _, ok := s.conn.(*net.TCPConn); ok {
 		if asClient {
 			s.conn = tls.Client(s.conn, cfg)

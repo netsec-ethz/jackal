@@ -70,6 +70,7 @@ type Config struct {
 	DialbackSecret string
 	MaxStanzaSize  int
 	Transport      TransportConfig
+	ListenScion    bool
 }
 
 type configProxy struct {
@@ -79,6 +80,7 @@ type configProxy struct {
 	DialbackSecret string          `yaml:"dialback_secret"`
 	MaxStanzaSize  int             `yaml:"max_stanza_size"`
 	Transport      TransportConfig `yaml:"transport"`
+	ListenScion    bool            `yaml:"listen_scion"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -105,6 +107,7 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if c.MaxStanzaSize == 0 {
 		c.MaxStanzaSize = defaultMaxStanzaSize
 	}
+	c.ListenScion = p.ListenScion
 	return nil
 }
 
@@ -121,4 +124,5 @@ type streamConfig struct {
 	dialer          *dialer
 	onInDisconnect  func(s stream.S2SIn)
 	onOutDisconnect func(s stream.S2SOut)
+	streamSCION     bool
 }

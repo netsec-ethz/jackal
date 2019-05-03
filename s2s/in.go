@@ -39,22 +39,26 @@ type inStream struct {
 	secured       uint32
 	authenticated uint32
 	actorCh       chan func()
+	acceptSCION   bool
 }
 
 func newInStream(config *streamConfig, mods *module.Modules, router *router.Router) *inStream {
 	s := &inStream{
-		id:      nextInID(),
-		cfg:     config,
-		router:  router,
-		mods:    mods,
-		actorCh: make(chan func(), streamMailboxSize),
+		id:          nextInID(),
+		cfg:         config,
+		router:      router,
+		mods:        mods,
+		actorCh:     make(chan func(), streamMailboxSize),
+		acceptSCION: true,
 	}
 	// start s2s in session
 	s.restartSession()
 
+	/* NOTE! UNcomment this
 	if config.connectTimeout > 0 {
 		s.connectTm = time.AfterFunc(config.connectTimeout, s.connectTimeout)
 	}
+	*/
 	go s.loop()
 	go s.doRead() // start reading transport...
 	return s
@@ -136,13 +140,19 @@ func (s *inStream) handleConnecting(elem xmpp.XElement) {
 	features.SetAttribute("xmlns:stream", streamNamespace)
 	features.SetAttribute("version", "1.0")
 
+	atomic.StoreUint32(&s.secured, 1) //NOTE! HACK for avoiding TLS for SCION, make this nice
+	atomic.StoreUint32(&s.authenticated, 1)
 	if !s.isSecured() {
-		starttls := xmpp.NewElementNamespace("starttls", tlsNamespace)
-		starttls.AppendElement(xmpp.NewElementName("required"))
-		features.AppendElement(starttls)
-		s.setState(inConnected)
-		s.sess.Open(features)
-		return
+		if s.acceptSCION { //this needs to actually be checked NOTE!
+			atomic.StoreUint32(&s.secured, 1)
+		} else {
+			starttls := xmpp.NewElementNamespace("starttls", tlsNamespace)
+			starttls.AppendElement(xmpp.NewElementName("required"))
+			features.AppendElement(starttls)
+			s.setState(inConnected)
+			s.sess.Open(features)
+			return
+		}
 	}
 
 	s.sess.Open(nil)

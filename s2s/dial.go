@@ -15,6 +15,12 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/transport"
+
+	"github.com/lucas-clemente/quic-go"
+	"github.com/netsec-ethz/scion-apps/lib/scionutil"
+	"github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/snet/squic"
 )
 
 type dialer struct {
@@ -29,32 +35,87 @@ func newDialer(cfg *Config, router *router.Router) *dialer {
 }
 
 func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
-	_, addrs, err := d.srvResolve("xmpp-server", "tcp", remoteDomain)
-	if err != nil {
-		log.Warnf("srv lookup error: %v", err)
-	}
-	var target string
+	isSCIONAddress, address := rainsLookup(remoteDomain)
+	if isSCIONAddress {
+		local, err := scionutil.GetLocalhost()
+		if err != nil {
+			return nil, err
+		}
+		remote, err := snet.AddrFromString(address)
 
-	if err != nil || len(addrs) == 1 && addrs[0].Target == "." {
-		target = remoteDomain + ":5269"
+		sciondPath := sciond.GetDefaultSCIONDPath(nil)
+		dispatcherPath := "/run/shm/dispatcher/default.sock"
+		snet.Init(local.IA, sciondPath, dispatcherPath)
+
+		quicConfig := &quic.Config{
+			KeepAlive: true,
+		}
+		sess, err := squic.DialSCION(nil, local, remote, quicConfig)
+		if err != nil {
+			return nil, err
+		}
+		uniStream, err := sess.OpenStreamSync()
+		if err != nil {
+			log.Infof("Couldn't open a new QUIC Stream")
+		}
+		//CHange this deadline, makes no sense, also change the unistream name NOTE!
+		uniStream.SetDeadline(time.Now().Add(time.Hour * 10))
+
+		tr := transport.NewQUICSocketTransport(sess, uniStream,
+			d.cfg.Transport.KeepAlive, true)
+		return &streamConfig{
+			keyGen:        &keyGen{secret: d.cfg.DialbackSecret},
+			localDomain:   localDomain,
+			remoteDomain:  remoteDomain,
+			transport:     tr,
+			maxStanzaSize: d.cfg.MaxStanzaSize,
+			streamSCION:   true,
+		}, nil
+
 	} else {
-		target = strings.TrimSuffix(addrs[0].Target, ".") + ":" + strconv.Itoa(int(addrs[0].Port))
+		_, addrs, err := d.srvResolve("xmpp-server", "tcp", remoteDomain)
+		if err != nil {
+			log.Warnf("srv lookup error: %v", err)
+		}
+		var target string
+
+		if err != nil || len(addrs) == 1 && addrs[0].Target == "." {
+			target = remoteDomain + ":5269"
+		} else {
+			target = strings.TrimSuffix(addrs[0].Target, ".") + ":" + strconv.Itoa(int(addrs[0].Port))
+		}
+		conn, err := d.dialTimeout("tcp", target, d.cfg.DialTimeout)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig := &tls.Config{
+			ServerName:   remoteDomain,
+			Certificates: d.router.Certificates(),
+		}
+		tr := transport.NewSocketTransport(conn, d.cfg.Transport.KeepAlive)
+		return &streamConfig{
+			keyGen:        &keyGen{secret: d.cfg.DialbackSecret},
+			localDomain:   localDomain,
+			remoteDomain:  remoteDomain,
+			transport:     tr,
+			tls:           tlsConfig,
+			maxStanzaSize: d.cfg.MaxStanzaSize,
+		}, nil
 	}
-	conn, err := d.dialTimeout("tcp", target, d.cfg.DialTimeout)
-	if err != nil {
-		return nil, err
+}
+
+func rainsLookup(remoteDomain string) (bool, string) {
+	var address string
+	var isSCIONaddress bool
+	if remoteDomain == "server1.xmpp" {
+		address = "17-ffaa:1:c0b,[127.0.0.1]:52690"
+		isSCIONaddress = true
+	} else if remoteDomain == "server2.xmpp" {
+		address = "18-ffaa:1:c21,[127.0.0.1]:52690"
+		isSCIONaddress = true
+	} else if remoteDomain == "server3.xmpp" {
+		address = "18-cbca:1:c13,[127.0.0.1]:52690"
+		isSCIONaddress = true
 	}
-	tlsConfig := &tls.Config{
-		ServerName:   remoteDomain,
-		Certificates: d.router.Certificates(),
-	}
-	tr := transport.NewSocketTransport(conn, d.cfg.Transport.KeepAlive)
-	return &streamConfig{
-		keyGen:        &keyGen{secret: d.cfg.DialbackSecret},
-		localDomain:   localDomain,
-		remoteDomain:  remoteDomain,
-		transport:     tr,
-		tls:           tlsConfig,
-		maxStanzaSize: d.cfg.MaxStanzaSize,
-	}, nil
+	return isSCIONaddress, address
 }
