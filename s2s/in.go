@@ -40,6 +40,7 @@ type inStream struct {
 	secured       uint32
 	authenticated uint32
 	runQueue      *runqueue.RunQueue
+	acceptSCION   bool
 }
 
 func newInStream(config *streamConfig, mods *module.Modules, router *router.Router) *inStream {
@@ -50,6 +51,11 @@ func newInStream(config *streamConfig, mods *module.Modules, router *router.Rout
 		router:   router,
 		mods:     mods,
 		runQueue: runqueue.New(id),
+	}
+	if s.cfg.streamSCION {
+		s.acceptSCION = true
+		atomic.StoreUint32(&s.secured, 1)
+		atomic.StoreUint32(&s.authenticated, 1)
 	}
 	// start s2s in session
 	s.restartSession()
@@ -330,7 +336,7 @@ func (s *inStream) authorizeDialbackKey(elem xmpp.XElement) {
 	dbVerify.SetText(elem.Text())
 	outCfg.dbVerify = dbVerify
 
-	outStm := newOutStream(s.router)
+	outStm := newOutStream(s.router, elem.From())
 	_ = outStm.start(outCfg)
 
 	// wait remote server verification

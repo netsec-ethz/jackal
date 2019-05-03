@@ -1,22 +1,29 @@
-# jackal Docker configuration file
+# jackal server1 integration test config file
 
-pid_path: /var/run/jackal.pid
+pid_path: jackal.pid
+
+debug:
+  port: 6060
 
 logger:
   level: debug
-  log_path: /var/log/jackal/jackal.log
+  log_path: jackal.log
 
 storage:
-  type: badgerdb
-  badgerdb:
-    data_dir: ./.data
+  type: mysql
+  mysql:
+    host: 127.0.0.1:3306
+    user: jackal
+    password: password
+    database: jackal
+    pool_size: 16
 
 router:
   hosts:
-  - name: localhost
-    tls:
-      privkey_path: ""
-      cert_path: ""
+    - name: server1.xmpp
+      tls:
+        privkey_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.key"
+        cert_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.crt"
 
 modules:
   enabled:
@@ -35,9 +42,6 @@ modules:
 
   mod_offline:
     queue_size: 2500
-#    gateway:
-#      type: http
-#      pass: http://127.0.0.1:6666
 
   mod_registration:
     allow_registration: yes
@@ -52,7 +56,7 @@ modules:
     send_interval: 60
 
 c2s:
-  - id: c2s:1
+  - id: default
 
     connect_timeout: 5
     max_stanza_size: 65536
@@ -63,7 +67,6 @@ c2s:
       bind_addr: 0.0.0.0
       port: 5222
       keep_alive: 120
-      # url_path: /xmpp/ws
 
     compression:
       level: default
@@ -75,12 +78,19 @@ c2s:
       - scram_sha_256
       - scram_sha_512
 
-#s2s:
-#    dial_timeout: 15
-#    dialback_secret: s3cr3tf0rd14lb4ck
-#    max_stanza_size: 131072
-#
-#    transport:
-#      bind_addr: 0.0.0.0
-#      port: 5269
-#      keep_alive: 600
+s2s:
+    dial_timeout: 15
+    dialback_secret: s3cr3tf0rd14lb4ck
+    max_stanza_size: 131072
+
+    transport:
+      bind_addr: 0.0.0.0
+      port: 5269
+      keep_alive: 600
+
+    scion_transport:
+      addr: 19-ffaa:0:1303,[127.0.0.1]
+      port: 52690
+      keep_alive: 600
+      privkey_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.key"
+      cert_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.crt"

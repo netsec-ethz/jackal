@@ -1,47 +1,61 @@
 module github.com/ortuman/jackal
 
+go 1.12
+
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
-	github.com/DATA-DOG/go-sqlmock v1.3.0
-	github.com/DataDog/datadog-go v0.0.0-20180822151419-281ae9f2d895 // indirect
-	github.com/Masterminds/squirrel v0.0.0-20170825200431-a6b93000bd21
-	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
-	github.com/circonus-labs/circonus-gometrics v2.2.5+incompatible // indirect
-	github.com/circonus-labs/circonusllhist v0.1.3 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgraph-io/badger v1.5.3
-	github.com/dgryski/go-farm v0.0.0-20180109070241-2de33835d102 // indirect
-	github.com/go-sql-driver/mysql v1.4.0
+	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
+	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/DATA-DOG/go-sqlmock v0.0.0-20190322142548-ef0bdf231ae3
+	github.com/Masterminds/squirrel v0.0.0-20190319150415-55303df43ec0
+	github.com/antlr/antlr4 v0.0.0-20191011202612-ad2bd05285ca // indirect
+	github.com/armon/go-metrics v0.0.0-20190430140413-ec5e00d3c878 // indirect
+	github.com/bclicn/color v0.0.0-20180711051946-108f2023dc84 // indirect
+	github.com/britram/borat v0.0.0-20181011130314-f891bcfcfb9b // indirect
+	github.com/d4l3k/messagediff v1.2.1 // indirect
+	github.com/dchest/cmac v0.0.0-20150527144652-62ff55a1048c // indirect
+	github.com/dgraph-io/badger v0.0.0-20190504012207-d2ebeac29495
+	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/go-sql-driver/mysql v0.0.0-20190423112050-d0a548181995
+	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/google/btree v0.0.0-20190326150332-20236160a414 // indirect
+	github.com/google/gopacket v1.1.17 // indirect
 	github.com/google/uuid v1.0.0
-	github.com/gorilla/websocket v1.4.0
-	github.com/hashicorp/consul v1.4.0 // indirect
-	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
-	github.com/hashicorp/go-msgpack v0.0.0-20150518234257-fa3f63826f7c // indirect
-	github.com/hashicorp/go-multierror v1.0.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.5.0 // indirect
-	github.com/hashicorp/go-sockaddr v0.0.0-20180320115054-6d291a969b86 // indirect
-	github.com/hashicorp/memberlist v0.1.0
-	github.com/hashicorp/serf v0.8.1 // indirect
-	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
-	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
-	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
-	github.com/lib/pq v1.0.0
-	github.com/mattn/go-sqlite3 v1.10.0 // indirect
-	github.com/miekg/dns v1.0.15 // indirect
-	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
-	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
-	github.com/pkg/errors v0.8.0
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v0.9.2 // indirect
-	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
-	github.com/sony/gobreaker v0.0.0-20180905101324-b2a34562d02c
-	github.com/stretchr/testify v1.2.2
-	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
-	golang.org/x/crypto v0.0.0-20181106171534-e4dc69e5b2fd
-	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/sys v0.0.0-20181107165924-66b7b1311ac8 // indirect
-	golang.org/x/text v0.3.0
-	google.golang.org/appengine v1.3.0 // indirect
-	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
-	gopkg.in/yaml.v2 v2.2.1
+	github.com/gorilla/websocket v0.0.0-20190427040306-80c2d40e9b91
+	github.com/hashicorp/go-msgpack v0.5.5 // indirect
+	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
+	github.com/hashicorp/golang-lru v0.5.1 // indirect
+	github.com/hashicorp/memberlist v0.0.0-20190312092157-a8f83c6403e0
+	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec // indirect
+	github.com/kormat/fmt15 v0.0.0-20181112140556-ee69fecb2656 // indirect
+	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/lib/pq v0.0.0-20190504011754-ceb88a064902
+	github.com/lucas-clemente/quic-go v0.0.0-20190427152327-c135b4f1e34c
+	github.com/mattn/go-colorable v0.1.1 // indirect
+	github.com/mattn/go-sqlite3 v1.11.0 // indirect
+	github.com/netsec-ethz/rains v0.0.0-20190912114116-83f56a7cb2d1 // indirect
+	github.com/netsec-ethz/scion-apps v0.0.0-20191003104124-7237654083b2
+	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
+	github.com/pborman/uuid v1.2.0
+	github.com/philhofer/fwd v1.0.0 // indirect
+	github.com/pierrec/lz4 v1.0.1 // indirect
+	github.com/pierrec/xxHash v0.1.5 // indirect
+	github.com/pkg/errors v0.8.1
+	github.com/scionproto/scion v0.0.0-00010101000000-000000000000
+	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
+	github.com/sony/gobreaker v0.0.0-20190329013020-a9b2a3fc7395
+	github.com/stretchr/testify v1.3.0
+	github.com/tinylib/msgp v1.1.0 // indirect
+	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
+	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
+	golang.org/x/sys v0.0.0-20190502175342-a43fa875dd82 // indirect
+	golang.org/x/text v0.3.2
+	google.golang.org/appengine v1.5.0 // indirect
+	gopkg.in/d4l3k/messagediff.v1 v1.2.1 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
+	gopkg.in/restruct.v1 v1.0.0-20190323193435-3c2afb705f3c // indirect
+	gopkg.in/yaml.v2 v2.2.2
+	zombiezen.com/go/capnproto2 v2.17.0+incompatible // indirect
 )
+
+replace github.com/scionproto/scion => github.com/netsec-ethz/netsec-scion v0.0.0-20190923155313-1f29eb7e2118
