@@ -91,11 +91,6 @@ func (s *socketTransport) WriteString(str string) (int, error) {
 }
 
 func (s *socketTransport) StartTLS(cfg *tls.Config, asClient bool) {
-	//NOTE!! GET RID OF THIS
-	log.Infof("Starting TLS")
-	if s.isQUIC {
-		return
-	}
 	if _, ok := s.conn.(*net.TCPConn); ok {
 		if asClient {
 			s.conn = tls.Client(s.conn, cfg)

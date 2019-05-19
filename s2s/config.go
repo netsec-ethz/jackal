@@ -7,6 +7,7 @@ package s2s
 
 import (
 	"crypto/tls"
+	"fmt"
 	"time"
 
 	"github.com/ortuman/jackal/module"
@@ -18,6 +19,7 @@ import (
 
 const (
 	defaultTransportPort      = 5269
+	defaultScionTransportPort = 52690
 	defaultTransportKeepAlive = time.Duration(10) * time.Minute
 	defaultDialTimeout        = time.Duration(15) * time.Second
 	defaultConnectTimeout     = time.Duration(5) * time.Second
@@ -35,6 +37,23 @@ type transportConfigProxy struct {
 	BindAddress string `yaml:"bind_addr"`
 	Port        int    `yaml:"port"`
 	KeepAlive   int    `yaml:"keep_alive"`
+}
+
+// TransportConfig represents s2s transport configuration.
+type ScionConfig struct {
+	Address   string
+	Port      int
+	KeepAlive time.Duration
+	Key       string
+	Cert      string
+}
+
+type scionConfigProxy struct {
+	Address   string `yaml:"addr"`
+	Port      int    `yaml:"port"`
+	KeepAlive int    `yaml:"keep_alive"`
+	Key       string `yaml:"privkey_path"`
+	Cert      string `yaml:"cert_path"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -56,6 +75,36 @@ func (c *TransportConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	return nil
 }
 
+// UnmarshalYAML satisfies Unmarshaler interface.
+func (c *ScionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	p := scionConfigProxy{}
+	if err := unmarshal(&p); err != nil {
+		return err
+	}
+	c.Address = p.Address
+	if len(c.Address) == 0 {
+		return fmt.Errorf("s2s: specify SCION listening address")
+	}
+	c.Port = p.Port
+	if c.Port == 0 {
+		c.Port = defaultScionTransportPort
+	}
+	if p.KeepAlive > 0 {
+		c.KeepAlive = time.Duration(p.KeepAlive) * time.Second
+	} else {
+		c.KeepAlive = defaultTransportKeepAlive
+	}
+	c.Key = p.Key
+	if len(c.Key) == 0 {
+		return fmt.Errorf("s2s: specify private key path")
+	}
+	c.Cert = p.Cert
+	if len(c.Cert) == 0 {
+		return fmt.Errorf("s2s: specify certificate path")
+	}
+	return nil
+}
+
 // TLSConfig represents a server TLS configuration.
 type TLSConfig struct {
 	CertFile    string `yaml:"cert_path"`
@@ -70,6 +119,7 @@ type Config struct {
 	DialbackSecret string
 	MaxStanzaSize  int
 	Transport      TransportConfig
+	Scion          *ScionConfig
 	ListenScion    bool
 }
 
@@ -80,7 +130,7 @@ type configProxy struct {
 	DialbackSecret string          `yaml:"dialback_secret"`
 	MaxStanzaSize  int             `yaml:"max_stanza_size"`
 	Transport      TransportConfig `yaml:"transport"`
-	ListenScion    bool            `yaml:"listen_scion"`
+	Scion          *ScionConfig    `yaml:"scion_transport"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -107,7 +157,10 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if c.MaxStanzaSize == 0 {
 		c.MaxStanzaSize = defaultMaxStanzaSize
 	}
-	c.ListenScion = p.ListenScion
+	c.Scion = p.Scion
+	if c.Scion != nil {
+		c.ListenScion = true
+	}
 	return nil
 }
 

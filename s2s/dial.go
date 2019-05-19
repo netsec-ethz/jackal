@@ -37,7 +37,13 @@ func newDialer(cfg *Config, router *router.Router) *dialer {
 func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 	isSCIONAddress, address := rainsLookup(remoteDomain)
 	if isSCIONAddress {
-		local, err := scionutil.GetLocalhost()
+		var local *snet.Addr
+		var err error
+		if d.cfg.Scion.Address == "localhost" {
+			local, err = scionutil.GetLocalhost()
+		} else {
+			local, err = snet.AddrFromString(d.cfg.Scion.Address)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -54,14 +60,12 @@ func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		uniStream, err := sess.OpenStreamSync()
+		biStream, err := sess.OpenStreamSync()
 		if err != nil {
 			log.Infof("Couldn't open a new QUIC Stream")
 		}
-		//CHange this deadline, makes no sense, also change the unistream name NOTE!
-		uniStream.SetDeadline(time.Now().Add(time.Hour * 10))
 
-		tr := transport.NewQUICSocketTransport(sess, uniStream,
+		tr := transport.NewQUICSocketTransport(sess, biStream,
 			d.cfg.Transport.KeepAlive, true)
 		return &streamConfig{
 			keyGen:        &keyGen{secret: d.cfg.DialbackSecret},

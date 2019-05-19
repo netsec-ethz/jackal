@@ -44,17 +44,25 @@ type outStream struct {
 	verifyCh      chan bool
 	discCh        chan *streamerror.Error
 	onDisconnect  func(s stream.S2SOut)
+	isSCION       bool
 }
 
-func newOutStream(router *router.Router) *outStream {
-
-	return &outStream{
-		id:       nextOutID(),
+func newOutStream(router *router.Router, remoteDomain string) *outStream {
+	id := nextOutID()
+	s := &outStream{
+		id:       id,
 		router:   router,
 		actorCh:  make(chan func(), streamMailboxSize),
 		verifyCh: make(chan bool, 1),
 		discCh:   make(chan *streamerror.Error, 1),
 	}
+	isscionAddress, _ := rainsLookup(remoteDomain)
+	if isscionAddress {
+		s.isSCION = true
+		atomic.StoreUint32(&s.secured, 1)
+		atomic.StoreUint32(&s.authenticated, 1)
+	}
+	return s
 }
 
 func (s *outStream) ID() string {
@@ -170,20 +178,14 @@ func (s *outStream) handleConnected(elem xmpp.XElement) {
 		return
 	}
 
-	atomic.StoreUint32(&s.secured, 1) //HACK, avoid isSecured for SCION nicely
-	atomic.StoreUint32(&s.authenticated, 1)
 	if !s.isSecured() {
-		if s.cfg.streamSCION {
-			atomic.StoreUint32(&s.secured, 1)
-		} else {
-			if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
-				// unsecured channels not supported
-				s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
-				return
-			}
-			s.setState(outSecuring)
-			s.writeElement(xmpp.NewElementNamespace("starttls", tlsNamespace))
+		if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
+			// unsecured channels not supported
+			s.disconnectWithStreamError(streamerror.ErrPolicyViolation)
+			return
 		}
+		s.setState(outSecuring)
+		s.writeElement(xmpp.NewElementNamespace("starttls", tlsNamespace))
 
 	} else {
 		// authorize dialback key

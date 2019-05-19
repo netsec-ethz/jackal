@@ -46,7 +46,7 @@ var createS2SServer = func(config *Config, mods *module.Modules, router *router.
 type S2S struct {
 	srv         s2sServer
 	started     uint32
-	ListenScion bool
+	listenScion bool
 }
 
 // New returns a new instance of an s2s connection manager.
@@ -54,8 +54,7 @@ func New(config *Config, mods *module.Modules, router *router.Router) *S2S {
 	if config == nil {
 		return nil
 	}
-	//note: put ListenScion into config
-	return &S2S{srv: createS2SServer(config, mods, router), ListenScion: config.ListenScion}
+	return &S2S{srv: createS2SServer(config, mods, router), listenScion: config.ListenScion}
 }
 
 // GetOut acts as an s2s outgoing stream provider.
@@ -70,7 +69,7 @@ func (s *S2S) GetOut(localDomain, remoteDomain string) (stream.S2SOut, error) {
 func (s *S2S) Start() {
 	if atomic.CompareAndSwapUint32(&s.started, 0, 1) {
 		go s.srv.start()
-		if s.ListenScion {
+		if s.listenScion {
 			go s.srv.startScion()
 		}
 	}

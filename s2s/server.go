@@ -54,29 +54,32 @@ func (s *server) start() {
 }
 
 func (s *server) startScion() {
-	const serverPort uint16 = 52690
-	address, err := scionutil.GetLocalhost()
-	address.Host.L4 = addr.NewL4UDPInfo(serverPort)
-	if err != nil {
-		log.Fatalf("s2s_in: can't get SCION localhost")
+	serverPort := uint16(s.cfg.Scion.Port)
+	var address *snet.Addr
+	var err error
+	if s.cfg.Scion.Address == "localhost" {
+		address, err = scionutil.GetLocalhost()
+	} else {
+		address, err = snet.AddrFromString(s.cfg.Scion.Address)
 	}
+	if err != nil {
+		log.Fatalf("s2s_in: can't get local scion address")
+	}
+	address.Host.L4 = addr.NewL4UDPInfo(serverPort)
 
-	if err := s.listenSCIONConn(address); err != nil {
+	if err := s.listenScionConn(address); err != nil {
 		log.Fatalf("%v", err)
 	}
 	log.Infof("s2s_in: Listening for SCION s2s on port %d", serverPort)
 }
 
-func (s *server) listenSCIONConn(address *snet.Addr) error {
+func (s *server) listenScionConn(address *snet.Addr) error {
 	var sciondPath string
 	var dispatcherPath string = "/run/shm/dispatcher/default.sock"
 
 	sciondPath = sciond.GetDefaultSCIONDPath(nil)
 	snet.Init(address.IA, sciondPath, dispatcherPath)
-	//note: clean this up (bring the path from yaml file)
-	tlsKeyFile := "/home/ubuntu/jackal/ssl/server.xmpp.key"
-	tlsCertFile := "/home/ubuntu/jackal/ssl/server.xmpp.crt"
-	err := squic.Init(tlsKeyFile, tlsCertFile)
+	err := squic.Init(s.cfg.Scion.Key, s.cfg.Scion.Cert)
 	if err != nil {
 		return err
 	}
@@ -95,8 +98,9 @@ func (s *server) listenSCIONConn(address *snet.Addr) error {
 			if err != nil {
 				log.Infof("No streams opened by the dialer")
 			}
+			isScion := true
 			go s.startInStream(transport.NewQUICSocketTransport(conn, accStream,
-				s.cfg.Transport.KeepAlive, true))
+				s.cfg.Scion.KeepAlive, true), isScion)
 			continue
 		}
 	}
@@ -110,14 +114,8 @@ func (s *server) shutdown(ctx context.Context) error {
 		if err := s.ln.Close(); err != nil {
 			return err
 		}
-		// close all connections...
-		c, err := closeConnections(ctx, &s.outConns)
-		if err != nil {
-			return err
-		}
-		log.Infof("%s: closed %d out connection(s)", s.cfg.ID, c)
 
-		c, err = closeConnections(ctx, &s.inConns)
+		c, err := closeConnections(ctx, &s.inConns)
 		if err != nil {
 			return err
 		}
@@ -137,7 +135,9 @@ func (s *server) listenConn(address string) error {
 	for atomic.LoadUint32(&s.listening) == 1 {
 		conn, err := ln.Accept()
 		if err == nil {
-			go s.startInStream(transport.NewSocketTransport(conn, s.cfg.Transport.KeepAlive))
+			isScion := false
+			go s.startInStream(transport.NewSocketTransport(conn,
+				s.cfg.Transport.KeepAlive), isScion)
 			continue
 		}
 	}
@@ -146,7 +146,7 @@ func (s *server) listenConn(address string) error {
 
 func (s *server) getOrDial(localDomain, remoteDomain string) (stream.S2SOut, error) {
 	domainPair := localDomain + ":" + remoteDomain
-	stm, loaded := s.outConns.LoadOrStore(domainPair, newOutStream(s.router))
+	stm, loaded := s.outConns.LoadOrStore(domainPair, newOutStream(s.router, remoteDomain))
 	if !loaded {
 		outCfg, err := s.dialer.dial(localDomain, remoteDomain)
 		if err != nil {
@@ -168,7 +168,7 @@ func (s *server) unregisterOutStream(stm stream.S2SOut) {
 	log.Infof("unregistered s2s out stream... (domainpair: %s)", domainPair)
 }
 
-func (s *server) startInStream(tr transport.Transport) {
+func (s *server) startInStream(tr transport.Transport, isScion bool) {
 	stm := newInStream(&streamConfig{
 		keyGen:         &keyGen{s.cfg.DialbackSecret},
 		transport:      tr,
@@ -176,6 +176,7 @@ func (s *server) startInStream(tr transport.Transport) {
 		maxStanzaSize:  s.cfg.MaxStanzaSize,
 		dialer:         s.dialer,
 		onInDisconnect: s.unregisterInStream,
+		streamSCION:    isScion,
 	}, s.mods, s.router)
 	s.registerInStream(stm)
 }
