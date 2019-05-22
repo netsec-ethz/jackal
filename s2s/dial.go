@@ -21,6 +21,8 @@ import (
 	"github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/squic"
+
+	libaddr "github.com/scionproto/scion/go/lib/addr"
 )
 
 type dialer struct {
@@ -35,7 +37,7 @@ func newDialer(cfg *Config, router *router.Router) *dialer {
 }
 
 func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
-	isSCIONAddress, address := rainsLookup(remoteDomain)
+	isSCIONAddress, remote := rainsLookup(remoteDomain)
 	if isSCIONAddress {
 		var local *snet.Addr
 		var err error
@@ -47,7 +49,6 @@ func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		remote, err := snet.AddrFromString(address)
 
 		sciondPath := sciond.GetDefaultSCIONDPath(nil)
 		dispatcherPath := "/run/shm/dispatcher/default.sock"
@@ -108,18 +109,24 @@ func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 	}
 }
 
-func rainsLookup(remoteDomain string) (bool, string) {
-	var address string
-	var isSCIONaddress bool
-	if remoteDomain == "server1.xmpp" {
-		address = "17-ffaa:1:c0b,[127.0.0.1]:52690"
-		isSCIONaddress = true
-	} else if remoteDomain == "server2.xmpp" {
-		address = "18-ffaa:1:c21,[127.0.0.1]:52690"
-		isSCIONaddress = true
-	} else if remoteDomain == "server3.xmpp" {
-		address = "18-cbca:1:c13,[127.0.0.1]:52690"
-		isSCIONaddress = true
+func rainsLookup(remoteDomain string) (bool, *snet.Addr) {
+	host, port, err := net.SplitHostPort(remoteDomain)
+	if err != nil {
+		host = remoteDomain
+		port = "52690"
 	}
-	return isSCIONaddress, address
+	ia, l3, err := scionutil.GetHostByName(host + ".")
+	if err != nil {
+		log.Error(err)
+		return false, nil
+	}
+
+	p, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		p = 52690
+	}
+	l4 := libaddr.NewL4UDPInfo(uint16(p))
+	raddr := &snet.Addr{IA: ia, Host: &libaddr.AppAddr{L3: l3, L4: l4}}
+
+	return true, raddr
 }
