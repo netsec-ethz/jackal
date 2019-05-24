@@ -218,6 +218,9 @@ func (s *fakeS2SServer) start() {
 	s.startCh <- struct{}{}
 }
 
+func (s *fakeS2SServer) startScion() {
+}
+
 func (s *fakeS2SServer) shutdown(ctx context.Context) error {
 	s.shutdownCh <- struct{}{}
 	return nil
