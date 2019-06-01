@@ -1,6 +1,7 @@
 package pubsubmodel
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ortuman/jackal/module/xep0004"
@@ -8,7 +9,7 @@ import (
 )
 
 func TestOptions_New(t *testing.T) {
-	opt, err := NewOptions(&xep0004.DataForm{})
+	opt, err := NewOptionsFromForm(&xep0004.DataForm{})
 	require.Nil(t, opt)
 	require.NotNil(t, err)
 
@@ -98,7 +99,7 @@ func TestOptions_New(t *testing.T) {
 			},
 		},
 	}
-	opt, err = NewOptions(form)
+	opt, err = NewOptionsFromForm(form)
 	require.NotNil(t, opt)
 	require.Nil(t, err)
 
@@ -106,8 +107,8 @@ func TestOptions_New(t *testing.T) {
 	require.True(t, opt.DeliverNotifications)
 	require.True(t, opt.DeliverPayloads)
 	require.True(t, opt.PersistItems)
-	require.Equal(t, 10, opt.MaxItems)
-	require.Equal(t, 604800, opt.ItemExpire)
+	require.Equal(t, int64(10), opt.MaxItems)
+	require.Equal(t, int64(604800), opt.ItemExpire)
 	require.Equal(t, "open", opt.AccessModel)
 	require.Equal(t, "publishers", opt.PublishModel)
 	require.True(t, opt.PurgeOffline)
@@ -118,7 +119,16 @@ func TestOptions_New(t *testing.T) {
 	require.True(t, opt.NotifyDelete)
 	require.True(t, opt.NotifyRetract)
 	require.True(t, opt.NotifySub)
-	require.Equal(t, 1024, opt.MaxPayloadSize)
+	require.Equal(t, int64(1024), opt.MaxPayloadSize)
 	require.Equal(t, "http://www.w3.org/2005/Atom", opt.Type)
 	require.Equal(t, "http://jabxslt.jabberstudio.org/atom_body.xslt", opt.BodyXSLT)
+
+	opt2, err := NewOptionsFromForm(opt.Form())
+	require.NotNil(t, opt2)
+	require.Nil(t, err)
+
+	require.True(t, reflect.DeepEqual(&opt, &opt2))
+
+	opt3 := NewOptionsFromMap(opt2.Map())
+	require.True(t, reflect.DeepEqual(&opt, &opt3))
 }

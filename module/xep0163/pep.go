@@ -33,9 +33,7 @@ var discoInfoFeatures = []string{
 	"http://jabber.org/protocol/pubsub#subscribe",
 }
 
-var defaultNodeOptions = []pubsubmodel.Option{
-	{},
-}
+var defaultNodeOptions = pubsubmodel.Options{}
 
 type Pep struct {
 	router   *router.Router

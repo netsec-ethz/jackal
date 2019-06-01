@@ -14,7 +14,6 @@ import (
 	"unicode/utf8"
 
 	gobserializer "github.com/ortuman/jackal/model/gob"
-
 	"github.com/ortuman/jackal/pool"
 	"golang.org/x/net/idna"
 	"golang.org/x/text/secure/precis"
