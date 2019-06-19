@@ -1,0 +1,14 @@
+[user2]
+enabled=true
+jid=user2@server2.xmpp
+resource=profanity
+muc.service=conference.server2.xmpp
+muc.nick=user2
+presence.last=online
+presence.login=online
+priority.online=0
+priority.chat=0
+priority.away=0
+priority.xa=0
+priority.dnd=0
+password=asdf

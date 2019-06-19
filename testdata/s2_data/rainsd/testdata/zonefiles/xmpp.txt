@@ -1,6 +1,0 @@
-:Z: . . [
-    :A: xmpp [ :redir:   _rains._tcp.server2.xmpp. ]
-    :A: xmpp [ :deleg:   :ed25519: 1 06c6d21fa1f2047581e8dcf2b014a9a001cd00c58de592c57cc86b2be641a220 ]
-    :A: _rains._tcp.server2.xmpp [ :srv:     server2.xmpp. 5024 0 ]
-    :A: server2.xmpp [ :scionip4: 18-ffaa:1:c21,[127.0.0.1] ]
-]
