@@ -34,17 +34,6 @@ jobs:
          docker_layer_caching: true
 
       - run:
-          name: Setup local execution alias
-          command: |
-            if [[ ${CIRCLE_ENV} == *"local"* ]]; then
-              echo "Setting up local execution aliases"
-              echo "shopt -s expand_aliases" >> ./${local_env}
-              echo "alias docker='sudo -E docker'" >> ./${local_env}
-              echo "alias docker-compose='sudo -E docker-compose'" >> ./${local_env}
-              # BASH_ENV gets sourced before each run step
-            fi
-
-      - run:
           name: Setup coordinator
           command: |
             set -x
@@ -55,7 +44,8 @@ jobs:
             sudo -E docker-compose -f .circleci/docker-compose.yml create coord
             # create is deprecated in v18, use no-start when circleci updates its images
             # docker-compose -f .circleci/docker-compose.yml up --no-start coord
-            sudo -E docker cp ./ coord:/home/circleci/repo/scionlab
+            sudo -E docker cp ./scionlab/ coord:/home/circleci/repo/scionlab
+            sudo -E docker cp ./.circleci/ coord:/home/circleci/repo/scionlab/.circleci/
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d coord
 
       # Start integration tests
