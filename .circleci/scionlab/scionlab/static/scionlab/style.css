@@ -1,0 +1,105 @@
+/* Sticky footer styles
+-------------------------------------------------- */
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  margin-bottom: 50px; /* Margin bottom by footer height */
+  background-color: #fafafa
+}
+main {
+  margin-top: 3rem;
+}
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 50px; /* Set the fixed height of the footer here */
+  line-height: 50px; /* Vertically center the text there */
+  background-color: #f5f5f5;
+}
+
+
+/* Layout helpers for forms
+-------------------------------------------------- */
+/* add sleek border for forms, give them a fixed max size so they don't span
+ * the entire main container */
+.form-box {
+  border: 1px solid #d8dee2;
+  border-radius: 5px;
+  padding: 15px 20px;
+  max-width: 700px;
+  padding: 16px;
+}
+
+/* login form */
+#login-form-panel {
+  max-width: 360px;
+  padding: 16px;
+  margin: auto;
+}
+
+#login-form {
+  background-color: #fff;
+}
+
+.text-lighter {
+  font-weight: 300;
+}
+
+
+/* Tweaks for forms (crispy-forms with bootstrap4 template pack)
+-------------------------------------------------- */
+/* more compact error list */
+.alert.alert-block ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* red asterisk for required fields */
+.asteriskField {
+  color: #cb2431;
+  padding-left: 3px;
+}
+
+/* hack to unhide feedback for invalid form fields in crispy/bootstrap-4.
+ * Issue caused by weird output by crispy and bug/missing feature in bootstrap-4.
+ * (see https://github.com/twbs/bootstrap/issues/23454). */
+.invalid-feedback {
+  display: block;
+}
+
+/* "TESTING" ribbon over nav bar
+------------------------------------*/
+.ribbon {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  pointer-events: none;
+}
+.ribbon span {
+  font-size: 20px;
+  color: #FFF;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 30px;
+  width: 200%;
+  display: block;
+  transform: rotate(-45deg);
+  position: absolute;
+  left: -50%;
+  top: 50%;
+  box-shadow: 0 3px 10px -5px rgba(0, 0, 0, 1);
+}
+
+.ribbon-red {
+  background: linear-gradient(#F70505 0%, #8F0808 100%);
+}
+.ribbon-blue {
+  background: linear-gradient(#2989d8 0%, #1e5799 100%);
+}
