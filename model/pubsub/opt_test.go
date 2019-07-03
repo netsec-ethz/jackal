@@ -109,7 +109,7 @@ func TestOptions_New(t *testing.T) {
 	require.True(t, opt.PersistItems)
 	require.Equal(t, int64(10), opt.MaxItems)
 	require.Equal(t, int64(604800), opt.ItemExpire)
-	require.Equal(t, "open", opt.AccessModel)
+	require.Equal(t, Open, opt.AccessModel)
 	require.Equal(t, "publishers", opt.PublishModel)
 	require.True(t, opt.PurgeOffline)
 	require.Equal(t, "never", opt.SendLastPublishedItem)

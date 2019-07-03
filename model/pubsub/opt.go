@@ -31,6 +31,15 @@ const (
 	bodyXSLTOptField              = "pubsub#body_xslt"
 )
 
+type AccessModel string
+
+const (
+	Open      AccessModel = "open"
+	Presence  AccessModel = "presence"
+	Roster    AccessModel = "roster"
+	WhiteList AccessModel = "whitelist"
+)
+
 type Options struct {
 	Title                 string
 	DeliverNotifications  bool
@@ -38,7 +47,7 @@ type Options struct {
 	PersistItems          bool
 	MaxItems              int64
 	ItemExpire            int64
-	AccessModel           string
+	AccessModel           AccessModel
 	PublishModel          string
 	PurgeOffline          bool
 	SendLastPublishedItem string
@@ -63,7 +72,7 @@ func NewOptionsFromMap(m map[string]string) *Options {
 	opt.PersistItems, _ = strconv.ParseBool(m[persistItemsOptField])
 	opt.MaxItems, _ = strconv.ParseInt(m[maxItemsOptField], 10, 32)
 	opt.ItemExpire, _ = strconv.ParseInt(m[itemExpireOptField], 10, 32)
-	opt.AccessModel = m[accessModelOptField]
+	opt.AccessModel = AccessModel(m[accessModelOptField])
 	opt.PublishModel = m[publishModelOptField]
 	opt.PurgeOffline, _ = strconv.ParseBool(m[purgeOfflineOptField])
 	opt.SendLastPublishedItem = m[sendLastPublishedItemOptField]
@@ -98,7 +107,7 @@ func NewOptionsFromForm(form *xep0004.DataForm) (*Options, error) {
 	opt.PersistItems, _ = strconv.ParseBool(fields.ValueForField(persistItemsOptField))
 	opt.MaxItems, _ = strconv.ParseInt(fields.ValueForField(maxItemsOptField), 10, 32)
 	opt.ItemExpire, _ = strconv.ParseInt(fields.ValueForField(itemExpireOptField), 10, 32)
-	opt.AccessModel = fields.ValueForField(accessModelOptField)
+	opt.AccessModel = AccessModel(fields.ValueForField(accessModelOptField))
 	opt.PublishModel = fields.ValueForField(publishModelOptField)
 	opt.PurgeOffline, _ = strconv.ParseBool(fields.ValueForField(purgeOfflineOptField))
 	opt.SendLastPublishedItem = fields.ValueForField(sendLastPublishedItemOptField)
@@ -123,7 +132,7 @@ func (opt *Options) Map() map[string]string {
 	m[persistItemsOptField] = strconv.FormatBool(opt.PersistItems)
 	m[maxItemsOptField] = strconv.Itoa(int(opt.MaxItems))
 	m[itemExpireOptField] = strconv.Itoa(int(opt.ItemExpire))
-	m[accessModelOptField] = opt.AccessModel
+	m[accessModelOptField] = string(opt.AccessModel)
 	m[publishModelOptField] = opt.PublishModel
 	m[purgeOfflineOptField] = strconv.FormatBool(opt.PurgeOffline)
 	m[sendLastPublishedItemOptField] = opt.SendLastPublishedItem
@@ -175,11 +184,11 @@ func (opt *Options) Form() *xep0004.DataForm {
 	})
 	form.Fields = append(form.Fields, xep0004.Field{
 		Var:    accessModelOptField,
-		Values: []string{opt.AccessModel},
+		Values: []string{string(opt.AccessModel)},
 	})
 	form.Fields = append(form.Fields, xep0004.Field{
 		Var:    accessModelOptField,
-		Values: []string{opt.AccessModel},
+		Values: []string{string(opt.AccessModel)},
 	})
 	form.Fields = append(form.Fields, xep0004.Field{
 		Var:    publishModelOptField,
