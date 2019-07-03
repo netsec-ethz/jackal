@@ -2,6 +2,8 @@ FROM ethznetsec/scion_base:latest
 
 ARG SCION_SRC
 ARG SC
+ARG JACKAL
+ARG JACKAL_ID
 
 # Update
 RUN sudo apt-get update && sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev
@@ -18,6 +20,7 @@ COPY ./setup/reloadASConfig.sh ${SC}/reloadASConfig.sh
 COPY ./setup/share_zk.sh ${SC}/share_zk.sh
 RUN mkdir ${SC}/gen-cache
 
+COPY ./setup/start_jackal.sh ${SC}/start_jackal.sh
 
 # Add environment variables for execution
 ENV PYTHONPATH ${SC}/python

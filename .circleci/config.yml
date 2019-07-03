@@ -26,6 +26,7 @@ jobs:
       BASH_ENV: "~/repo/.circleci/bash_env.sh"
       SCION_SRC: "https://github.com/netsec-ethz/netsec-scion"
       SC: "/home/scion/go/src/github.com/scionproto/scion"
+      JACKAL: "/home/scion/go/src/github.com/ortuman/jackal"
 
     steps:
       - checkout
@@ -76,6 +77,12 @@ jobs:
             sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "Successfully verified PCB" -s -r ${SC}/logs/ | wc -l` -ge 5 ]; do sleep 0.1; done; ${SC}/bin/scmp echo -c 10 -local 19-ffaa:0:1305,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];'
             sudo -E docker exec coreAS1301 /bin/bash -c "${SC}/bin/scmp echo -c 10 -local 19-ffaa:0:1301,[127.0.0.1] -remote 19-ffaa:0:1303,[127.0.0.1]"
             sudo -E docker exec infraAS1303 /bin/bash -c "grep -m 5 'Successfully verified PCB' -r ${SC}/logs/; ${SC}/bin/scmp echo -c 10 -local 19-ffaa:0:1303,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];"
+
+      - run:
+          name: Start jackal servers
+          command: |
+            set -x
+            sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
 
 workflows:
   version: 2

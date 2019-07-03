@@ -65,6 +65,8 @@ services:
       args:
         - SCION_SRC=${SCION_SRC}
         - SC=${SC}
+        - JACKAL=${JACKAL}
+        - JACKAL_ID="server1"
     image: scionhost:tmp
     container_name: infraAS1303
     depends_on:
@@ -89,6 +91,8 @@ services:
       args:
         - SCION_SRC=${SCION_SRC}
         - SC=${SC}
+        - JACKAL=${JACKAL}
+        - JACKAL_ID="server2"
     image: scionhost:tmp
     container_name: infraAS1305
     depends_on:
@@ -105,54 +109,3 @@ services:
     tty: true
     entrypoint: /bin/bash
     command: -c "ls ${SC}/reloadASConfig.sh; ${SC}/reloadASConfig.sh; cat;"
-
-  coreAS1401:
-    build:
-      context: .
-      dockerfile: Dockerfile-scionHost
-      args:
-        - SCION_SRC=${SCION_SRC}
-        - SC=${SC}
-    image: scionhost:tmp
-    container_name: coreAS1401
-    depends_on:
-      - zookeeper
-    working_dir: /home/scion/go/src/github.com/scionproto/scion
-    networks:
-      as_net:
-        ipv4_address: ${coreAS1401IP}
-    user: scion
-    environment:
-      CUSER: 528974e4534147858b305e1435de8658
-      CSECRET: 30d63340acba4c4d8f84dc62417b58df
-    tty: true
-    # waits for binaries and setup script to be loaded, then keeps beaconing
-    entrypoint: /bin/bash
-    command: -c "until [ -e ${SC}/reloadASConfig.sh ]; do sleep 1; done; ${SC}/reloadASConfig.sh; cat;"
-
-  infraAS1405:
-    build:
-      context: .
-      dockerfile: Dockerfile-scionHost
-      args:
-        - SCION_SRC=${SCION_SRC}
-        - SC=${SC}
-    image: scionhost:tmp
-    container_name: infraAS1405
-    depends_on:
-      - zookeeper
-      - coreAS1401
-    working_dir: /home/scion/go/src/github.com/scionproto/scion
-    networks:
-      as_net:
-        ipv4_address: ${infraAS1405IP}
-    user: scion
-    privileged: true
-    environment:
-      CUSER: 2c872b10a8a348949cf181a1cb8b9a62
-      CSECRET: c16f444f48034dc7bdd1b747f2428986
-    tty: true
-    # waits for binaries and setup script to be loaded, then a user AS to connect and run scmp echos
-    entrypoint: /bin/bash
-    command: -c "until [ -e ${SC}/VPNexistingAS.sh ]; do sleep 1; done; ${SC}/VPNexistingAS.sh; grep 'Successfully verified PCB' -r $${SC}/logs/; $${SC}/bin/scmp echo -c 10 -local 20-ffaa:0:1405,[127.0.0.1] -remote 20-ffaa:0:1401,[127.0.0.1]; touch $${SC}/done; sleep 120; echo 'reloading AP'; ${SC}/reloadASConfig.sh; cat;"
-
