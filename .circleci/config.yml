@@ -82,7 +82,10 @@ jobs:
           name: Start jackal servers
           command: |
             set -x
+            sudo -E docker exec infraAS1303 /bin/bash -c '${SC}/start_jackal.sh;'
+            sudo -E docker exec infraAS1303 /bin/bash -c 'until [ `grep "msg="Registered with dispatcher" addr="19-ffaa:0:1303,[127.0.0.1]:52690" -s -r ~/jackal/jackal.log ]; do sleep 0.1; done;'
             sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
+            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "msg="Registered with dispatcher" addr="19-ffaa:0:1305,[127.0.0.1]:52690" -s -r ~/jackal/jackal.log ]; do sleep 0.1; done;'
 
 workflows:
   version: 2

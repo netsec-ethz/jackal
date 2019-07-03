@@ -35,8 +35,8 @@ router:
   hosts:
     - name: server1.xmpp
       tls:
-        privkey_path: "/home/ubuntu/jackal/ssl/server1.xmpp.key"
-        cert_path: "/home/ubuntu/jackal/ssl/server1.xmpp.crt"
+        privkey_path: "/home/scion/jackal/ssl/server1.xmpp.key"
+        cert_path: "/home/scion/jackal/ssl/server1.xmpp.crt"
 
 modules:
   enabled:
@@ -109,5 +109,5 @@ s2s:
       addr: localhost
       port: 52690
       keep_alive: 600
-      privkey_path: "/home/ubuntu/jackal/ssl/server1.xmpp.key"
-      cert_path: "/home/ubuntu/jackal/ssl/server1.xmpp.crt"
+      privkey_path: "/home/scion/jackal/ssl/server1.xmpp.key"
+      cert_path: "/home/scion/jackal/ssl/server1.xmpp.crt"
