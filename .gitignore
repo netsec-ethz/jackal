@@ -36,8 +36,5 @@ server.crt
 .idea/
 .vscode/
 
-# Dependency 
-vendor/
-
 # Binary 
 jackal
