@@ -15,8 +15,9 @@ go1.12.2 build github.com/ortuman/jackal
 sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password password'
 sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password password'
 sudo apt-get -y install mysql-server
-echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost';" | sudo mysql
-echo "CREATE DATABASE jackal;" | mysql -h localhost -u jackal
+mysqld_safe> /dev/null 2>&1 &
+echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost' IDENTIFIED BY 'password';" | mysql -h localhost -u root -ppassword
+echo "CREATE DATABASE jackal;" | mysql -h localhost -u jackal -ppassword
 cp -r ~/go/src/github.com/ortuman/jackal/testdata/s2_data/* .
 mysql -h localhost -D jackal -u jackal < server2.sql
 ./jackal -c example.jackal.yml

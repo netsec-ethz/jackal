@@ -40,6 +40,8 @@ services:
       args:
         - SCION_SRC=${SCION_SRC}
         - SC=${SC}
+        - JACKAL=""
+        - JACKAL_ID=""
     image: scionhost:tmp
     container_name: coreAS1301
     depends_on:
