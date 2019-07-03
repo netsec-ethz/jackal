@@ -14,7 +14,6 @@ storage:
   mysql:
     host: 127.0.0.1:3306
     user: jackal
-    password: password
     database: jackal
     pool_size: 16
 
@@ -35,8 +34,8 @@ router:
   hosts:
     - name: server2.xmpp
       tls:
-        privkey_path: "/home/ubuntu/jackal/ssl/server2.xmpp.key"
-        cert_path: "/home/ubuntu/jackal/ssl/server2.xmpp.crt"
+        privkey_path: "/home/scion/jackal/ssl/server2.xmpp.key"
+        cert_path: "/home/scion/jackal/ssl/server2.xmpp.crt"
 
 modules:
   enabled:
@@ -109,5 +108,5 @@ s2s:
       addr: localhost
       port: 52690
       keep_alive: 600
-      privkey_path: "/home/ubuntu/jackal/ssl/server2.xmpp.key"
-      cert_path: "/home/ubuntu/jackal/ssl/server2.xmpp.crt"
+      privkey_path: "/home/scion/jackal/ssl/server2.xmpp.key"
+      cert_path: "/home/scion/jackal/ssl/server2.xmpp.crt"
