@@ -34,7 +34,7 @@ func TestXEP0163_Matching(t *testing.T) {
 }
 
 func TestXEP163_CreateNode(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
+	r, s, shutdown := setupTest("jackal.im")
 	defer shutdown()
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
@@ -60,6 +60,11 @@ func TestXEP163_CreateNode(t *testing.T) {
 	require.NotNil(t, elem)
 	require.Equal(t, iqID, elem.ID())
 	require.Equal(t, xmpp.ResultType, elem.Type())
+
+	// read node
+	n, _ := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	require.NotNil(t, n)
+	require.Equal(t, n.Options, defaultNodeOptions)
 }
 
 func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
