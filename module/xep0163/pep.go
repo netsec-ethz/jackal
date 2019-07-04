@@ -8,6 +8,7 @@ package xep0163
 import (
 	"github.com/ortuman/jackal/log"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
+	"github.com/ortuman/jackal/module/xep0004"
 	"github.com/ortuman/jackal/module/xep0030"
 	"github.com/ortuman/jackal/router"
 	"github.com/ortuman/jackal/runqueue"
@@ -31,83 +32,11 @@ var discoInfoFeatures = []string{
 	"http://jabber.org/protocol/pubsub#subscribe",
 }
 
-/*
-<?xml version="1.0" encoding="UTF-8"?>
-<iq type="result" id="config1" from="ortuman@jabber.org" to="ortuman@jabber.org/ortumachine">
-   <pubsub xmlns="http://jabber.org/protocol/pubsub#owner">
-      <configure node="princely_musings">
-         <x xmlns="jabber:x:data" type="form">
-            <field type="hidden" var="FORM_TYPE">
-               <value>http://jabber.org/protocol/pubsub#node_config</value>
-            </field>
-            <field type="text-single" var="pubsub#title" label="Node Title">
-               <value />
-            </field>
-            <field type="list-single" var="pubsub#node_type" label="Node Type">
-               <value>leaf</value>
-               <option label="Leaf Node">
-                  <value>leaf</value>
-               </option>
-            </field>
-            <field type="list-single" var="pubsub#access_model" label="Access Model">
-               <value>presence</value>
-               <option label="Open">
-                  <value>open</value>
-               </option>
-               <option label="Presence Sharing">
-                  <value>presence</value>
-               </option>
-               <option label="Roster Groups">
-                  <value>roster</value>
-               </option>
-               <option label="Whitelist">
-                  <value>whitelist</value>
-               </option>
-            </field>
-            <field type="list-single" var="pubsub#publish_model" label="Publish Model">
-               <value>publishers</value>
-               <option label="Only publishers may publish">
-                  <value>publishers</value>
-               </option>
-               <option label="Anyone may publish">
-                  <value>open</value>
-               </option>
-            </field>
-            <field type="list-multi" var="pubsub#roster_groups_allowed" label="Roster Groups">
-               <option label="Contactos">
-                  <value>Contactos</value>
-               </option>
-            </field>
-            <field type="text-single" var="pubsub#max_items" label="Max items">
-               <value>1</value>
-            </field>
-            <field type="boolean" var="pubsub#notify_retract" label="Notify Retracts">
-               <value>0</value>
-            </field>
-            <field type="text-multi" var="pubsub#collection" label="Collections">
-               <value />
-            </field>
-            <field type="list-single" var="pubsub#send_last_published_item" label="Send last item">
-               <value>on_sub_and_presence</value>
-               <option label="Never">
-                  <value>never</value>
-               </option>
-               <option label="On Subscription">
-                  <value>on_sub</value>
-               </option>
-               <option label="On Subscription or Presence">
-                  <value>on_sub_and_presence</value>
-               </option>
-            </field>
-         </x>
-      </configure>
-   </pubsub>
-</iq>
-*/
-
 var defaultNodeOptions = pubsubmodel.Options{
-	Title: "",
-	Type:  "leaf",
+	AccessModel:           pubsubmodel.Presence,
+	PublishModel:          pubsubmodel.Publishers,
+	SendLastPublishedItem: pubsubmodel.OnSubAndPresence,
+	MaxItems:              1,
 }
 
 type Pep struct {
@@ -171,7 +100,17 @@ func (x *Pep) createNode(iq *xmpp.IQ, nodeEl xmpp.XElement, configEl xmpp.XEleme
 		Name: nodeName,
 	}
 	if configEl != nil {
-		// TODO(ortuman): attach node options
+		form, err := xep0004.NewFormFromElement(configEl)
+		if err != nil {
+			_ = x.router.Route(iq.BadRequestError())
+			return
+		}
+		opts, err := pubsubmodel.NewOptionsFromForm(form)
+		if err != nil {
+			_ = x.router.Route(iq.BadRequestError())
+			return
+		}
+		node.Options = *opts
 	} else {
 		// apply default configuration
 		node.Options = defaultNodeOptions
