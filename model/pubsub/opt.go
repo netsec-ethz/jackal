@@ -2,6 +2,7 @@ package pubsubmodel
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/ortuman/jackal/module/xep0004"
@@ -32,14 +33,14 @@ const (
 )
 
 const (
-	Open                 = "open"
-	Presence             = "presence"
-	RosterAccessModel    = "roster"
-	WhiteListAccessModel = "whitelist"
-	Publishers           = "publishers"
-	Never                = "never"
-	OnSub                = "on_sub"
-	OnSubAndPresence     = "on_sub_and_presence"
+	Open             = "open"
+	Presence         = "presence"
+	Roster           = "roster"
+	WhiteList        = "whitelist"
+	Publishers       = "publishers"
+	Never            = "never"
+	OnSub            = "on_sub"
+	OnSubAndPresence = "on_sub_and_presence"
 )
 
 type Options struct {
@@ -64,7 +65,7 @@ type Options struct {
 	BodyXSLT              string
 }
 
-func NewOptionsFromMap(m map[string]string) *Options {
+func NewOptionsFromMap(m map[string]string) (*Options, error) {
 	opt := &Options{}
 
 	// extract options values
@@ -74,10 +75,7 @@ func NewOptionsFromMap(m map[string]string) *Options {
 	opt.PersistItems, _ = strconv.ParseBool(m[persistItemsOptField])
 	opt.MaxItems, _ = strconv.ParseInt(m[maxItemsOptField], 10, 32)
 	opt.ItemExpire, _ = strconv.ParseInt(m[itemExpireOptField], 10, 32)
-	opt.AccessModel = m[accessModelOptField]
-	opt.PublishModel = m[publishModelOptField]
 	opt.PurgeOffline, _ = strconv.ParseBool(m[purgeOfflineOptField])
-	opt.SendLastPublishedItem = m[sendLastPublishedItemOptField]
 	opt.PresenceBasedDelivery, _ = strconv.ParseBool(m[presenceBasedDeliveryOptField])
 	opt.NotificationType = m[notificationTypeOptField]
 	opt.NotifyConfig, _ = strconv.ParseBool(m[notifyConfigOptField])
@@ -88,7 +86,31 @@ func NewOptionsFromMap(m map[string]string) *Options {
 	opt.Type = m[typeOptField]
 	opt.BodyXSLT = m[bodyXSLTOptField]
 
-	return opt
+	// extract options values
+	accessModel := m[accessModelOptField]
+	switch accessModel {
+	case Open, Presence, Roster, WhiteList:
+		opt.AccessModel = accessModel
+	default:
+		return nil, fmt.Errorf("invalid access_model value: %s", accessModel)
+	}
+
+	publishModel := m[publishModelOptField]
+	switch publishModel {
+	case Open, Publishers:
+		opt.PublishModel = publishModel
+	default:
+		return nil, fmt.Errorf("invalid publish_model value: %s", publishModel)
+	}
+
+	sendLastPublishedItem := m[sendLastPublishedItemOptField]
+	switch sendLastPublishedItem {
+	case Never, OnSub, OnSubAndPresence:
+		opt.SendLastPublishedItem = sendLastPublishedItem
+	default:
+		return nil, fmt.Errorf("invalid send_last_published_item value: %s", sendLastPublishedItem)
+	}
+	return opt, nil
 }
 
 func NewOptionsFromForm(form *xep0004.DataForm) (*Options, error) {
@@ -103,16 +125,37 @@ func NewOptionsFromForm(form *xep0004.DataForm) (*Options, error) {
 		return nil, errors.New("invalid form type")
 	}
 	// extract options values
+	accessModel := fields.ValueForField(accessModelOptField)
+	switch accessModel {
+	case Open, Presence, Roster, WhiteList:
+		opt.AccessModel = accessModel
+	default:
+		return nil, fmt.Errorf("invalid access_model value: %s", accessModel)
+	}
+
+	publishModel := fields.ValueForField(publishModelOptField)
+	switch publishModel {
+	case Open, Publishers:
+		opt.PublishModel = publishModel
+	default:
+		return nil, fmt.Errorf("invalid publish_model value: %s", publishModel)
+	}
+
+	sendLastPublishedItem := fields.ValueForField(sendLastPublishedItemOptField)
+	switch sendLastPublishedItem {
+	case Never, OnSub, OnSubAndPresence:
+		opt.SendLastPublishedItem = sendLastPublishedItem
+	default:
+		return nil, fmt.Errorf("invalid send_last_published_item value: %s", sendLastPublishedItem)
+	}
+
 	opt.Title = fields.ValueForField(titleOptField)
 	opt.DeliverNotifications, _ = strconv.ParseBool(fields.ValueForField(deliverNotificationsOptField))
 	opt.DeliverPayloads, _ = strconv.ParseBool(fields.ValueForField(deliverPayloadsOptField))
 	opt.PersistItems, _ = strconv.ParseBool(fields.ValueForField(persistItemsOptField))
 	opt.MaxItems, _ = strconv.ParseInt(fields.ValueForField(maxItemsOptField), 10, 32)
 	opt.ItemExpire, _ = strconv.ParseInt(fields.ValueForField(itemExpireOptField), 10, 32)
-	opt.AccessModel = fields.ValueForField(accessModelOptField)
-	opt.PublishModel = fields.ValueForField(publishModelOptField)
 	opt.PurgeOffline, _ = strconv.ParseBool(fields.ValueForField(purgeOfflineOptField))
-	opt.SendLastPublishedItem = fields.ValueForField(sendLastPublishedItemOptField)
 	opt.PresenceBasedDelivery, _ = strconv.ParseBool(fields.ValueForField(presenceBasedDeliveryOptField))
 	opt.NotificationType = fields.ValueForField(notificationTypeOptField)
 	opt.NotifyConfig, _ = strconv.ParseBool(fields.ValueForField(notifyConfigOptField))

@@ -129,6 +129,7 @@ func TestOptions_New(t *testing.T) {
 
 	require.True(t, reflect.DeepEqual(&opt, &opt2))
 
-	opt3 := NewOptionsFromMap(opt2.Map())
+	opt3, err := NewOptionsFromMap(opt2.Map())
+	require.Nil(t, err)
 	require.True(t, reflect.DeepEqual(&opt, &opt3))
 }
