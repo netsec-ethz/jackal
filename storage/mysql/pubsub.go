@@ -11,7 +11,7 @@ import (
 func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
 		// if not existing, insert new node
-		res, err := sq.Insert("pubsub_nodes").
+		_, err := sq.Insert("pubsub_nodes").
 			Columns("host", "name", "updated_at", "created_at").
 			Suffix("ON DUPLICATE KEY UPDATE updated_at = NOW()").
 			Values(node.Host, node.Name, nowExpr, nowExpr).
@@ -19,7 +19,14 @@ func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
 		if err != nil {
 			return err
 		}
-		nodeIdentifier, err := res.LastInsertId()
+
+		// fetch identifier
+		var nodeIdentifier string
+
+		err = sq.Select("id").
+			From("pubsub_nodes").
+			Where(sq.And{sq.Eq{"host": node.Host}, sq.Eq{"name": node.Name}}).
+			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
 		if err != nil {
 			return err
 		}
