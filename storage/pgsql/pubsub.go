@@ -2,7 +2,6 @@ package pgsql
 
 import (
 	"database/sql"
-	"errors"
 
 	sq "github.com/Masterminds/squirrel"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
@@ -53,5 +52,38 @@ func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
 }
 
 func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
-	return nil, errors.New("unimplemented method")
+	rows, err := sq.Select("name", "value").
+		From("pubsub_node_options").
+		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
+		RunWith(s.db).Query()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	optMap, err := s.scanNodeOptionsMap(rows)
+	if err != nil {
+		return nil, err
+	}
+	opts, err := pubsubmodel.NewOptionsFromMap(optMap)
+	if err != nil {
+		return nil, err
+	}
+	return &pubsubmodel.Node{
+		Host:    host,
+		Name:    name,
+		Options: *opts,
+	}, nil
+}
+
+func (s *Storage) scanNodeOptionsMap(scanner rowsScanner) (map[string]string, error) {
+	var optMap = make(map[string]string)
+	for scanner.Next() {
+		var opt, value string
+		if err := scanner.Scan(&opt, &value); err != nil {
+			return nil, err
+		}
+		optMap[opt] = value
+	}
+	return optMap, nil
 }
