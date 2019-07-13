@@ -139,7 +139,7 @@ func (s *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 		_, err = sq.Insert("pubsub_affiliations").
 			Columns("node_id", "jid", "affiliation").
 			Values(nodeIdentifier, affiliation.JID, affiliation.Affiliation).
-			Suffix("ON CONFLICT (node_id, jid) DO UPDATE affiliation = $4", affiliation.Affiliation).
+			Suffix("ON CONFLICT (node_id, jid) DO UPDATE SET affiliation = $4", affiliation.Affiliation).
 			RunWith(s.db).Exec()
 		return err
 	})
