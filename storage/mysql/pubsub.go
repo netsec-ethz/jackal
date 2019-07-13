@@ -22,7 +22,7 @@ func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
 			return err
 		}
 
-		// fetch identifier
+		// fetch node identifier
 		var nodeIdentifier string
 
 		err = sq.Select("id").
@@ -114,9 +114,34 @@ func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, err
 	return items, nil
 }
 
-func (s *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
-	// TODO(ortuman): implement me!
-	return errors.New("unimplemented method")
+func (s *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
+	return s.inTransaction(func(tx *sql.Tx) error {
+
+		// fetch node identifier
+		var nodeIdentifier string
+
+		err := sq.Select("id").
+			From("pubsub_nodes").
+			Where(sq.And{sq.Eq{"host": host}, sq.Eq{"name": name}}).
+			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
+		switch err {
+		case nil:
+			break
+		case sql.ErrNoRows:
+			return nil
+		default:
+			return err
+
+		}
+
+		// insert affiliation
+		_, err = sq.Insert("pubsub_affiliations").
+			Columns("node_id", "jid", "affiliation", "updated_at", "created_at").
+			Values(nodeIdentifier, affiliation.JID, affiliation.Affiliation, nowExpr, nowExpr).
+			Suffix("ON DUPLICATE KEY UPDATE affiliation = ?, updated_at = NOW()", affiliation.Affiliation).
+			RunWith(s.db).Exec()
+		return err
+	})
 }
 
 func (s *Storage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {

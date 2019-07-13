@@ -36,7 +36,7 @@ func (b *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, err
 	return nil, errors.New("unimplemented method")
 }
 
-func (b *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
+func (b *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
 	// TODO(ortuman): implement me!
 	return errors.New("unimplemented method")
 }
