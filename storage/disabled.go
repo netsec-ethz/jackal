@@ -107,6 +107,22 @@ func (*disabledStorage) GetPubSubNode(host, name string) (*pubsubmodel.Node, err
 	return nil, nil
 }
 
+func (*disabledStorage) InsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+	return nil
+}
+
+func (*disabledStorage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+	return nil, nil
+}
+
+func (*disabledStorage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
+	return nil
+}
+
+func (*disabledStorage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {
+	return nil, nil
+}
+
 func (*disabledStorage) IsClusterCompatible() bool {
 	return false
 }

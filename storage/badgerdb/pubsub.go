@@ -1,6 +1,8 @@
 package badgerdb
 
 import (
+	"errors"
+
 	"github.com/dgraph-io/badger"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
 )
@@ -22,6 +24,26 @@ func (b *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	default:
 		return nil, err
 	}
+}
+
+func (b *Storage) InsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+	// TODO(ortuman): implement me!
+	return errors.New("unimplemented method")
+}
+
+func (b *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+	// TODO(ortuman): implement me!
+	return nil, errors.New("unimplemented method")
+}
+
+func (b *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
+	// TODO(ortuman): implement me!
+	return errors.New("unimplemented method")
+}
+
+func (b *Storage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {
+	// TODO(ortuman): implement me!
+	return nil, errors.New("unimplemented method")
 }
 
 func (b *Storage) pubSubStorageKey(host, name string) []byte {

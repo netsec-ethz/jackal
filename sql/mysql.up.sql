@@ -138,6 +138,8 @@ CREATE TABLE IF NOT EXISTS pubsub_node_options (
     node_id BIGINT NOT NULL,
     name    TEXT NOT NULL,
     value   TEXT NOT NULL,
+    updated_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
 
     INDEX i_pubsub_node_options_node_id (node_id)
 
@@ -149,6 +151,8 @@ CREATE TABLE IF NOT EXISTS pubsub_affiliations (
     node_id     BIGINT NOT NULL,
     jid         TEXT NOT NULL,
     affiliation TEXT NOT NULL,
+    updated_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL,
 
     INDEX i_pubsub_affiliations_jid (jid(512)),
     UNIQUE INDEX i_pubsub_affiliations_node_id_jid (node_id, jid(512))

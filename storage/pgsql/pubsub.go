@@ -2,6 +2,7 @@ package pgsql
 
 import (
 	"database/sql"
+	"errors"
 
 	sq "github.com/Masterminds/squirrel"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
@@ -74,6 +75,26 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 		Name:    name,
 		Options: *opts,
 	}, nil
+}
+
+func (s *Storage) InsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+	// TODO(ortuman): implement me!
+	return errors.New("unimplemented method")
+}
+
+func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+	// TODO(ortuman): implement me!
+	return nil, errors.New("unimplemented method")
+}
+
+func (s *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
+	// TODO(ortuman): implement me!
+	return errors.New("unimplemented method")
+}
+
+func (s *Storage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {
+	// TODO(ortuman): implement me!
+	return nil, errors.New("unimplemented method")
 }
 
 func (s *Storage) scanNodeOptionsMap(scanner rowsScanner) (map[string]string, error) {
