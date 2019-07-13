@@ -3,9 +3,11 @@ package pgsql
 import (
 	"database/sql"
 	"errors"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
+	"github.com/ortuman/jackal/xmpp"
 )
 
 func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
@@ -62,9 +64,13 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	}
 	defer func() { _ = rows.Close() }()
 
-	optMap, err := s.scanNodeOptionsMap(rows)
-	if err != nil {
-		return nil, err
+	var optMap = make(map[string]string)
+	for rows.Next() {
+		var opt, value string
+		if err := rows.Scan(&opt, &value); err != nil {
+			return nil, err
+		}
+		optMap[opt] = value
 	}
 	opts, err := pubsubmodel.NewOptionsFromMap(optMap)
 	if err != nil {
@@ -83,8 +89,30 @@ func (s *Storage) InsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 }
 
 func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
-	// TODO(ortuman): implement me!
-	return nil, errors.New("unimplemented method")
+	rows, err := sq.Select("item_id", "publisher", "payload").
+		From("pubsub_items").
+		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
+		RunWith(s.db).Query()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var items []pubsubmodel.Item
+	for rows.Next() {
+		var payload string
+		var item pubsubmodel.Item
+		if err := rows.Scan(&item.ID, &item.Publisher, &payload); err != nil {
+			return nil, err
+		}
+		parser := xmpp.NewParser(strings.NewReader(payload), xmpp.DefaultMode, 0)
+		item.Payload, err = parser.ParseElement()
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func (s *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
@@ -93,18 +121,22 @@ func (s *Storage) InsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliat
 }
 
 func (s *Storage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {
-	// TODO(ortuman): implement me!
-	return nil, errors.New("unimplemented method")
-}
+	rows, err := sq.Select("jid", "affiliation").
+		From("pubsub_affiliations").
+		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
+		RunWith(s.db).Query()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
 
-func (s *Storage) scanNodeOptionsMap(scanner rowsScanner) (map[string]string, error) {
-	var optMap = make(map[string]string)
-	for scanner.Next() {
-		var opt, value string
-		if err := scanner.Scan(&opt, &value); err != nil {
+	var affiliations []pubsubmodel.Affiliation
+	for rows.Next() {
+		var affiliation pubsubmodel.Affiliation
+		if err := rows.Scan(&affiliation.JID, &affiliation.Affiliation); err != nil {
 			return nil, err
 		}
-		optMap[opt] = value
+		affiliations = append(affiliations, affiliation)
 	}
-	return optMap, nil
+	return affiliations, nil
 }
