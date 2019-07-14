@@ -2,7 +2,6 @@ package pgsql
 
 import (
 	"database/sql"
-	"errors"
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
@@ -83,9 +82,56 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	}, nil
 }
 
-func (s *Storage) InsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
-	// TODO(ortuman): implement me!
-	return errors.New("unimplemented method")
+func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+	return s.inTransaction(func(tx *sql.Tx) error {
+		// fetch node identifier and item count
+		var nodeIdentifier string
+		var itemCount int
+
+		err := sq.Select("node_id", "COUNT(*)").
+			From("pubsub_items").
+			Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
+			GroupBy("node_id").
+			RunWith(tx).QueryRow().Scan(&nodeIdentifier, &itemCount)
+		switch err {
+		case nil:
+			break
+		case sql.ErrNoRows:
+			return nil
+		default:
+			return err
+		}
+
+		// check if maximum item count was reached
+		if itemCount == maxNodeItems {
+			// delete oldest item id
+			var oldestItemID string
+
+			err := sq.Select("item_id").
+				From("pubsub_items").
+				Where("node_id = $1 AND created_at = (SELECT MIN(created_at) FROM pubsub_items WHERE node_id = $2)", nodeIdentifier, nodeIdentifier).
+				RunWith(tx).QueryRow().Scan(&oldestItemID)
+			if err != nil {
+				return err
+			}
+			_, err = sq.Delete("pubsub_items").
+				Where(sq.Eq{"item_id": oldestItemID}).
+				Exec()
+			if err != nil {
+				return err
+			}
+		}
+
+		// upsert new item
+		rawPayload := item.Payload.String()
+
+		_, err = sq.Insert("pubsub_items").
+			Columns("node_id", "item_id", "payload", "publisher").
+			Values(nodeIdentifier, item.ID, rawPayload, item.Publisher).
+			Suffix("ON CONFLICT (node_id, item_id) DO UPDATE SET payload = $5, publisher = $6", rawPayload, item.Publisher).
+			RunWith(s.db).Exec()
+		return err
+	})
 }
 
 func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
@@ -115,9 +161,8 @@ func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, err
 	return items, nil
 }
 
-func (s *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
+func (s *Storage) InsertOrUpdatePubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
-
 		// fetch node identifier
 		var nodeIdentifier string
 
@@ -135,7 +180,7 @@ func (s *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 
 		}
 
-		// insert affiliation
+		// upsert affiliation
 		_, err = sq.Insert("pubsub_affiliations").
 			Columns("node_id", "jid", "affiliation").
 			Values(nodeIdentifier, affiliation.JID, affiliation.Affiliation).
@@ -145,7 +190,7 @@ func (s *Storage) InsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 	})
 }
 
-func (s *Storage) GetPubSubNodeAffiliation(host, name string) ([]pubsubmodel.Affiliation, error) {
+func (s *Storage) GetPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
 	rows, err := sq.Select("jid", "affiliation").
 		From("pubsub_affiliations").
 		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
