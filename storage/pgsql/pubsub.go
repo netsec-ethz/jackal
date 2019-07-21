@@ -84,12 +84,12 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 
 func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
-		// fetch node identifier and item count
+		// fetch node identifier
 		var nodeIdentifier string
 
-		err := sq.Select("node_id").
-			From("pubsub_items").
-			Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
+		err := sq.Select("id").
+			From("pubsub_nodes").
+			Where(sq.And{sq.Eq{"host": host}, sq.Eq{"name": name}}).
 			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
 		switch err {
 		case nil:

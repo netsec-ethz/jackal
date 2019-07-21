@@ -87,9 +87,16 @@ func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
 	s, mock := NewMock()
 
 	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM pubsub_nodes WHERE (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("1"))
 
 	mock.ExpectExec("INSERT INTO pubsub_items (.+) ON CONFLICT (.+) DO UPDATE SET payload = (.+), publisher = (.+)").
 		WithArgs("1", "abc1234", payload.String(), "ortuman@jackal.im", payload.String(), "ortuman@jackal.im").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectExec("DELETE FROM pubsub_items WHERE item_id IN (.+)").
+		WithArgs("1", int64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
