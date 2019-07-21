@@ -11,6 +11,7 @@ import (
 
 func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
+
 		// if not existing, insert new node
 		_, err := sq.Insert("pubsub_nodes").
 			Columns("host", "name", "updated_at", "created_at").
@@ -86,9 +87,9 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 		// fetch node identifier
 		var nodeIdentifier string
 
-		err := sq.Select("node_id").
-			From("pubsub_items").
-			Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = ? AND name = ?)", host, name).
+		err := sq.Select("id").
+			From("pubsub_nodes").
+			Where(sq.And{sq.Eq{"host": host}, sq.Eq{"name": name}}).
 			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
 		switch err {
 		case nil:
