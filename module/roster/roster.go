@@ -648,7 +648,7 @@ func (x *Roster) broadcastPresence(presence *xmpp.Presence) error {
 	if usr, err := storage.FetchUser(fromJID.Node()); err != nil {
 		return err
 	} else if usr != nil {
-		return storage.InsertOrUpdateUser(&model.User{
+		return storage.UpsertUser(&model.User{
 			Username:     usr.Username,
 			Password:     usr.Password,
 			LastPresence: presence,
@@ -669,7 +669,7 @@ func (x *Roster) onlineJIDMatchesJID(onlineJID, j *jid.JID) bool {
 }
 
 func (x *Roster) insertItem(ri *rostermodel.Item, pushTo *jid.JID) error {
-	v, err := storage.InsertOrUpdateRosterItem(ri)
+	v, err := storage.UpsertRosterItem(ri)
 	if err != nil {
 		return err
 	}

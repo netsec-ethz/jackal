@@ -176,7 +176,7 @@ func TestXEP0077_RegisterUser(t *testing.T) {
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	// already existing user...
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	storage.UpsertUser(&model.User{Username: "ortuman", Password: "1234"})
 	username.SetText("ortuman")
 	password.SetText("5678")
 	x.ProcessIQ(iq)
@@ -214,7 +214,7 @@ func TestXEP0077_CancelRegistration(t *testing.T) {
 	x := New(&Config{}, nil, r)
 	defer x.Shutdown()
 
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	storage.UpsertUser(&model.User{Username: "ortuman", Password: "1234"})
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 	iq.SetFromJID(j)
@@ -268,7 +268,7 @@ func TestXEP0077_ChangePassword(t *testing.T) {
 	x := New(&Config{}, nil, r)
 	defer x.Shutdown()
 
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	storage.UpsertUser(&model.User{Username: "ortuman", Password: "1234"})
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 	iq.SetFromJID(j)

@@ -7,9 +7,9 @@ package memstorage
 
 import "github.com/ortuman/jackal/xmpp"
 
-// InsertOrUpdatePrivateXML inserts a new private element into storage,
+// UpsertPrivateXML inserts a new private element into storage,
 // or updates it in case it's been previously inserted.
-func (m *Storage) InsertOrUpdatePrivateXML(privateXML []xmpp.XElement, namespace string, username string) error {
+func (m *Storage) UpsertPrivateXML(privateXML []xmpp.XElement, namespace string, username string) error {
 	return m.inWriteLock(func() error {
 		var elems []xmpp.XElement
 		for _, prv := range privateXML {

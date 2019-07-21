@@ -37,11 +37,11 @@ func TestBadgerDB_RosterItems(t *testing.T) {
 		Subscription: "both",
 		Groups:       []string{"family", "friends"},
 	}
-	_, err := h.db.InsertOrUpdateRosterItem(ri1)
+	_, err := h.db.UpsertRosterItem(ri1)
 	require.NoError(t, err)
-	_, err = h.db.InsertOrUpdateRosterItem(ri2)
+	_, err = h.db.UpsertRosterItem(ri2)
 	require.NoError(t, err)
-	_, err = h.db.InsertOrUpdateRosterItem(ri3)
+	_, err = h.db.UpsertRosterItem(ri3)
 	require.NoError(t, err)
 
 	ris, _, err := h.db.FetchRosterItems("ortuman")

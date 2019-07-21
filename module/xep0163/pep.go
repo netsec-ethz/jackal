@@ -115,7 +115,7 @@ func (x *Pep) createNode(iq *xmpp.IQ, nodeEl xmpp.XElement, configEl xmpp.XEleme
 		// apply default configuration
 		node.Options = defaultNodeOptions
 	}
-	if err := storage.InsertOrUpdatePubSubNode(node); err != nil {
+	if err := storage.UpsertPubSubNode(node); err != nil {
 		log.Error(err)
 		_ = x.router.Route(iq.InternalServerError())
 		return

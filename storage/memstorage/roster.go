@@ -7,9 +7,9 @@ package memstorage
 
 import rostermodel "github.com/ortuman/jackal/model/roster"
 
-// InsertOrUpdateRosterItem inserts a new roster item entity into storage,
+// UpsertRosterItem inserts a new roster item entity into storage,
 // or updates it in case it's been previously inserted.
-func (m *Storage) InsertOrUpdateRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
+func (m *Storage) UpsertRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
 	var v rostermodel.Version
 	err := m.inWriteLock(func() error {
 		ris := m.rosterItems[ri.Username]

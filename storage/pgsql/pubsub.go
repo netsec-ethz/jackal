@@ -9,7 +9,7 @@ import (
 	"github.com/ortuman/jackal/xmpp"
 )
 
-func (s *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
+func (s *Storage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
 		// if not existing, insert new node
 		_, err := sq.Insert("pubsub_nodes").
@@ -82,7 +82,7 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	}, nil
 }
 
-func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+func (s *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
 		// fetch node identifier
 		var nodeIdentifier string
@@ -147,7 +147,7 @@ func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, err
 	return items, nil
 }
 
-func (s *Storage) InsertOrUpdatePubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
+func (s *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
 		// fetch node identifier
 		var nodeIdentifier string

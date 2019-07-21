@@ -59,8 +59,7 @@ func (s *Storage) FetchBlockListItems(username string) ([]model.BlockListItem, e
 	if err != nil {
 		return nil, err
 	}
-
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return s.scanBlockListItemEntities(rows)
 }
@@ -70,9 +69,10 @@ func (s *Storage) scanBlockListItemEntities(scanner rowsScanner) ([]model.BlockL
 
 	for scanner.Next() {
 		var it model.BlockListItem
-		scanner.Scan(&it.Username, &it.JID)
+		if err := scanner.Scan(&it.Username, &it.JID); err != nil {
+			return nil, err
+		}
 		ret = append(ret, it)
 	}
-
 	return ret, nil
 }

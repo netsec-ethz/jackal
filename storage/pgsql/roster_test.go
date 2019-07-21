@@ -69,7 +69,7 @@ func TestInsertRosterItem(t *testing.T) {
 
 	mock.ExpectCommit()
 
-	_, err := s.InsertOrUpdateRosterItem(&ri)
+	_, err := s.UpsertRosterItem(&ri)
 	require.Nil(t, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }

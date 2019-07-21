@@ -132,7 +132,7 @@ func (x *Private) setPrivate(iq *xmpp.IQ, q xmpp.XElement) {
 	for ns, elements := range nsElements {
 		log.Infof("saving private element. ns: %s... (%s/%s)", ns, fromJID.Node(), fromJID.Resource())
 
-		if err := storage.InsertOrUpdatePrivateXML(elements, ns, fromJID.Node()); err != nil {
+		if err := storage.UpsertPrivateXML(elements, ns, fromJID.Node()); err != nil {
 			log.Error(err)
 			_ = x.router.Route(iq.InternalServerError())
 			return

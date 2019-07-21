@@ -35,7 +35,7 @@ func TestStorageInsertOrUpdatePubSubNode(t *testing.T) {
 	mock.ExpectCommit()
 
 	node := pubsubmodel.Node{Host: "host", Name: "name", Options: opts}
-	err := s.InsertOrUpdatePubSubNode(&node)
+	err := s.UpsertPubSubNode(&node)
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -100,7 +100,7 @@ func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	err := s.InsertOrUpdatePubSubNodeItem(&pubsubmodel.Item{
+	err := s.UpsertPubSubNodeItem(&pubsubmodel.Item{
 		ID:        "abc1234",
 		Publisher: "ortuman@jackal.im",
 		Payload:   payload,

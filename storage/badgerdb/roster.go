@@ -10,9 +10,9 @@ import (
 	rostermodel "github.com/ortuman/jackal/model/roster"
 )
 
-// InsertOrUpdateRosterItem inserts a new roster item entity into storage,
+// UpsertRosterItem inserts a new roster item entity into storage,
 // or updates it in case it's been previously inserted.
-func (b *Storage) InsertOrUpdateRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
+func (b *Storage) UpsertRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
 	if err := b.db.Update(func(tx *badger.Txn) error {
 		return b.insertOrUpdate(ri, b.rosterItemKey(ri.Username, ri.JID), tx)
 	}); err != nil {

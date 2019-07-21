@@ -51,7 +51,7 @@ func (s *Storage) FetchOfflineMessages(username string) ([]*xmpp.Message, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	buf := s.pool.Get()
 	defer s.pool.Put(buf)
@@ -59,7 +59,9 @@ func (s *Storage) FetchOfflineMessages(username string) ([]*xmpp.Message, error)
 	buf.WriteString("<r>")
 	for rows.Next() {
 		var msg string
-		rows.Scan(&msg)
+		if err := rows.Scan(&msg); err != nil {
+			return nil, err
+		}
 		buf.WriteString(msg)
 	}
 	buf.WriteString("</r>")

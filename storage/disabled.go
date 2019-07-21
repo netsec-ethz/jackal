@@ -14,12 +14,12 @@ import (
 
 type disabledStorage struct{}
 
-func (*disabledStorage) InsertOrUpdateUser(user *model.User) error      { return nil }
+func (*disabledStorage) UpsertUser(user *model.User) error              { return nil }
 func (*disabledStorage) DeleteUser(username string) error               { return nil }
 func (*disabledStorage) FetchUser(username string) (*model.User, error) { return nil, nil }
 func (*disabledStorage) UserExists(username string) (bool, error)       { return false, nil }
 
-func (*disabledStorage) InsertOrUpdateRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
+func (*disabledStorage) UpsertRosterItem(ri *rostermodel.Item) (rostermodel.Version, error) {
 	return rostermodel.Version{}, nil
 }
 
@@ -71,7 +71,7 @@ func (*disabledStorage) DeleteOfflineMessages(username string) error {
 	return nil
 }
 
-func (*disabledStorage) InsertOrUpdateVCard(vCard xmpp.XElement, username string) error {
+func (*disabledStorage) UpsertVCard(vCard xmpp.XElement, username string) error {
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (*disabledStorage) FetchPrivateXML(namespace string, username string) ([]xm
 	return nil, nil
 }
 
-func (*disabledStorage) InsertOrUpdatePrivateXML(privateXML []xmpp.XElement, namespace string, username string) error {
+func (*disabledStorage) UpsertPrivateXML(privateXML []xmpp.XElement, namespace string, username string) error {
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (*disabledStorage) FetchBlockListItems(username string) ([]model.BlockListI
 	return nil, nil
 }
 
-func (*disabledStorage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
+func (*disabledStorage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	return nil
 }
 
@@ -107,7 +107,7 @@ func (*disabledStorage) GetPubSubNode(host, name string) (*pubsubmodel.Node, err
 	return nil, nil
 }
 
-func (*disabledStorage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+func (*disabledStorage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (*disabledStorage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Ite
 	return nil, nil
 }
 
-func (*disabledStorage) InsertOrUpdatePubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
+func (*disabledStorage) UpsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Affiliation, host, name string) error {
 	return nil
 }
 

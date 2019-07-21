@@ -7,7 +7,7 @@ import (
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
 )
 
-func (b *Storage) InsertOrUpdatePubSubNode(node *pubsubmodel.Node) error {
+func (b *Storage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	return b.db.Update(func(tx *badger.Txn) error {
 		return b.insertOrUpdate(node, b.pubSubStorageKey(node.Host, node.Name), tx)
 	})
@@ -26,7 +26,7 @@ func (b *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	}
 }
 
-func (b *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
+func (b *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
 	// TODO(ortuman): implement me!
 	return errors.New("unimplemented method")
 }
@@ -36,7 +36,7 @@ func (b *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, err
 	return nil, errors.New("unimplemented method")
 }
 
-func (b *Storage) InsertOrUpdatePubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
+func (b *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliation, host, name string) error {
 	// TODO(ortuman): implement me!
 	return errors.New("unimplemented method")
 }

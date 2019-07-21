@@ -28,13 +28,13 @@ func TestMemoryStorage_InsertRosterItem(t *testing.T) {
 
 	s := New()
 	s.EnableMockedError()
-	_, err := s.InsertOrUpdateRosterItem(&ri)
+	_, err := s.UpsertRosterItem(&ri)
 	require.Equal(t, ErrMockedError, err)
 	s.DisableMockedError()
-	_, err = s.InsertOrUpdateRosterItem(&ri)
+	_, err = s.UpsertRosterItem(&ri)
 	require.Nil(t, err)
 	ri.Subscription = "to"
-	_, err = s.InsertOrUpdateRosterItem(&ri)
+	_, err = s.UpsertRosterItem(&ri)
 	require.Nil(t, err)
 }
 
@@ -50,7 +50,7 @@ func TestMemoryStorage_FetchRosterItem(t *testing.T) {
 		Groups:       g,
 	}
 	s := New()
-	s.InsertOrUpdateRosterItem(&ri)
+	s.UpsertRosterItem(&ri)
 
 	s.EnableMockedError()
 	_, err := s.FetchRosterItem("user", "contact")
@@ -96,9 +96,9 @@ func TestMemoryStorage_FetchRosterItems(t *testing.T) {
 	}
 
 	s := New()
-	s.InsertOrUpdateRosterItem(&ri)
-	s.InsertOrUpdateRosterItem(&ri2)
-	s.InsertOrUpdateRosterItem(&ri3)
+	s.UpsertRosterItem(&ri)
+	s.UpsertRosterItem(&ri2)
+	s.UpsertRosterItem(&ri3)
 
 	s.EnableMockedError()
 	_, _, err := s.FetchRosterItems("user")
@@ -124,7 +124,7 @@ func TestMemoryStorage_DeleteRosterItem(t *testing.T) {
 		Groups:       g,
 	}
 	s := New()
-	s.InsertOrUpdateRosterItem(&ri)
+	s.UpsertRosterItem(&ri)
 
 	s.EnableMockedError()
 	_, err := s.DeleteRosterItem("user", "contact")
