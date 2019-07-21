@@ -83,15 +83,13 @@ func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 
 func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, name string, maxNodeItems int) error {
 	return s.inTransaction(func(tx *sql.Tx) error {
-		// fetch node identifier and item count
+		// fetch node identifier
 		var nodeIdentifier string
-		var itemCount int
 
-		err := sq.Select("node_id", "COUNT(*)").
+		err := sq.Select("node_id").
 			From("pubsub_items").
 			Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = ? AND name = ?)", host, name).
-			GroupBy("node_id").
-			RunWith(tx).QueryRow().Scan(&nodeIdentifier, &itemCount)
+			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
 		switch err {
 		case nil:
 			break
@@ -99,26 +97,6 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 			return nil
 		default:
 			return err
-		}
-
-		// check if maximum item count was reached
-		if itemCount == maxNodeItems {
-			// delete oldest item id
-			var oldestItemID string
-
-			err := sq.Select("item_id").
-				From("pubsub_items").
-				Where("node_id = ? AND created_at = (SELECT MIN(created_at) FROM pubsub_items WHERE node_id = ?)", nodeIdentifier, nodeIdentifier).
-				RunWith(tx).QueryRow().Scan(&oldestItemID)
-			if err != nil {
-				return err
-			}
-			_, err = sq.Delete("pubsub_items").
-				Where(sq.Eq{"item_id": oldestItemID}).
-				Exec()
-			if err != nil {
-				return err
-			}
 		}
 
 		// upsert new item
@@ -129,6 +107,38 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 			Values(nodeIdentifier, item.ID, rawPayload, item.Publisher, nowExpr, nowExpr).
 			Suffix("ON DUPLICATE KEY UPDATE payload = ?, publisher = ?, updated_at = NOW()", rawPayload, item.Publisher).
 			RunWith(s.db).Exec()
+
+		// get total items count
+		var itemsCount int
+
+		err = sq.Select("COUNT(*)").
+			From("pubsub_items").
+			Where(sq.Eq{"node_id": nodeIdentifier}).
+			RunWith(tx).QueryRow().Scan(&itemsCount)
+		if err != nil {
+			return err
+		}
+
+		// check if maximum item count was reached
+		if itemsCount == maxNodeItems {
+			// fetch oldest item timestamp
+			var oldestCreatedAt string
+
+			err := sq.Select("MIN(created_at)").
+				From("pubsub_items").
+				Where(sq.Eq{"node_id": nodeIdentifier}).
+				RunWith(tx).QueryRow().Scan(&oldestCreatedAt)
+			if err != nil {
+				return err
+			}
+			// delete oldest item
+			_, err = sq.Delete("pubsub_items").
+				Where(sq.And{sq.Eq{"node_id": nodeIdentifier}, sq.Eq{"created_at": oldestCreatedAt}}).
+				Exec()
+			if err != nil {
+				return err
+			}
+		}
 		return err
 	})
 }

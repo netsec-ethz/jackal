@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
 	pubsubmodel "github.com/ortuman/jackal/model/pubsub"
+	"github.com/ortuman/jackal/xmpp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,4 +79,37 @@ func TestMySQLStorageGetPubSubNodeError(t *testing.T) {
 
 	require.NotNil(t, err)
 	require.Equal(t, errMySQLStorage, err)
+}
+
+func TestMySQLStorageInsertOrUpdatePubSubNodeItem(t *testing.T) {
+	payload := xmpp.NewIQType(uuid.New().String(), xmpp.GetType)
+
+	s, mock := NewMock()
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT node_id, COUNT(.+) FROM pubsub_items WHERE (.+) GROUP BY (node_id)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnRows(sqlmock.NewRows([]string{"node_id", "COUNT(*)"}).AddRow("1", "1"))
+
+	mock.ExpectQuery("SELECT item_id FROM pubsub_items WHERE node_id = (.+) AND created_at = (.+)").
+		WillReturnRows(sqlmock.NewRows([]string{"item_id"}).AddRow("xyz999"))
+
+	mock.ExpectExec("DELETE FROM pubsub_items WHERE (.+)").
+		WithArgs("xyz999").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectExec("INSERT INTO pubsub_items (.+) ON DUPLICATE KEY UPDATE payload = (.+), publisher = (.+)").
+		WithArgs("1", "abc1234", payload.String(), "ortuman@jackal.im", payload.String(), "ortuman@jackal.im").
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	err := s.InsertOrUpdatePubSubNodeItem(&pubsubmodel.Item{
+		ID:        "abc1234",
+		Publisher: "ortuman@jackal.im",
+		Payload:   payload,
+	}, "ortuman@jackal.im", "princely_musings", 1)
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.Nil(t, err)
 }

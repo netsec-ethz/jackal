@@ -86,13 +86,11 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 	return s.inTransaction(func(tx *sql.Tx) error {
 		// fetch node identifier and item count
 		var nodeIdentifier string
-		var itemCount int
 
-		err := sq.Select("node_id", "COUNT(*)").
+		err := sq.Select("node_id").
 			From("pubsub_items").
 			Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
-			GroupBy("node_id").
-			RunWith(tx).QueryRow().Scan(&nodeIdentifier, &itemCount)
+			RunWith(tx).QueryRow().Scan(&nodeIdentifier)
 		switch err {
 		case nil:
 			break
@@ -100,26 +98,6 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 			return nil
 		default:
 			return err
-		}
-
-		// check if maximum item count was reached
-		if itemCount == maxNodeItems {
-			// delete oldest item id
-			var oldestItemID string
-
-			err := sq.Select("item_id").
-				From("pubsub_items").
-				Where("node_id = $1 AND created_at = (SELECT MIN(created_at) FROM pubsub_items WHERE node_id = $2)", nodeIdentifier, nodeIdentifier).
-				RunWith(tx).QueryRow().Scan(&oldestItemID)
-			if err != nil {
-				return err
-			}
-			_, err = sq.Delete("pubsub_items").
-				Where(sq.Eq{"item_id": oldestItemID}).
-				Exec()
-			if err != nil {
-				return err
-			}
 		}
 
 		// upsert new item
@@ -130,6 +108,14 @@ func (s *Storage) InsertOrUpdatePubSubNodeItem(item *pubsubmodel.Item, host, nam
 			Values(nodeIdentifier, item.ID, rawPayload, item.Publisher).
 			Suffix("ON CONFLICT (node_id, item_id) DO UPDATE SET payload = $5, publisher = $6", rawPayload, item.Publisher).
 			RunWith(s.db).Exec()
+		if err != nil {
+			return err
+		}
+
+		// check if maximum item count was reached and delete oldest one
+		_, err = sq.Delete("pubsub_items").
+			Where("item_id IN (SELECT item_id FROM pubsub_items WHERE node_id = $1 ORDER BY created_at DESC OFFSET $2)", nodeIdentifier, maxNodeItems).
+			RunWith(tx).Exec()
 		return err
 	})
 }
