@@ -163,7 +163,6 @@ func (s *Storage) InsertOrUpdatePubSubNodeAffiliation(affiliation *pubsubmodel.A
 			return nil
 		default:
 			return err
-
 		}
 
 		// upsert affiliation
