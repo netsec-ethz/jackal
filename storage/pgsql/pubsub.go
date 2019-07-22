@@ -107,7 +107,7 @@ func (s *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 			Columns("node_id", "item_id", "payload", "publisher").
 			Values(nodeIdentifier, item.ID, rawPayload, item.Publisher).
 			Suffix("ON CONFLICT (node_id, item_id) DO UPDATE SET payload = $5, publisher = $6", rawPayload, item.Publisher).
-			RunWith(s.db).Exec()
+			RunWith(tx).Exec()
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (s *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 			Columns("node_id", "jid", "affiliation").
 			Values(nodeIdentifier, affiliation.JID, affiliation.Affiliation).
 			Suffix("ON CONFLICT (node_id, jid) DO UPDATE SET affiliation = $4", affiliation.Affiliation).
-			RunWith(s.db).Exec()
+			RunWith(tx).Exec()
 		return err
 	})
 }

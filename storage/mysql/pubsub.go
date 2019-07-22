@@ -107,7 +107,7 @@ func (s *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 			Columns("node_id", "item_id", "payload", "publisher", "updated_at", "created_at").
 			Values(nodeIdentifier, item.ID, rawPayload, item.Publisher, nowExpr, nowExpr).
 			Suffix("ON DUPLICATE KEY UPDATE payload = ?, publisher = ?, updated_at = NOW()", rawPayload, item.Publisher).
-			RunWith(s.db).Exec()
+			RunWith(tx).Exec()
 
 		// get total items count
 		var itemsCount int
@@ -135,7 +135,7 @@ func (s *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 			// delete oldest item
 			_, err = sq.Delete("pubsub_items").
 				Where(sq.And{sq.Eq{"node_id": nodeIdentifier}, sq.Eq{"created_at": oldestCreatedAt}}).
-				Exec()
+				RunWith(tx).Exec()
 			if err != nil {
 				return err
 			}
@@ -195,7 +195,7 @@ func (s *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 			Columns("node_id", "jid", "affiliation", "updated_at", "created_at").
 			Values(nodeIdentifier, affiliation.JID, affiliation.Affiliation, nowExpr, nowExpr).
 			Suffix("ON DUPLICATE KEY UPDATE affiliation = ?, updated_at = NOW()", affiliation.Affiliation).
-			RunWith(s.db).Exec()
+			RunWith(tx).Exec()
 		return err
 	})
 }
