@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertPubSubNode(t *testing.T) {
+func TestMySQLStorageUpsertPubSubNode(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO pubsub_nodes (.+) ON DUPLICATE KEY UPDATE (.+)").
@@ -64,16 +64,14 @@ func TestMySQLStorageGetPubSubNode(t *testing.T) {
 	require.Equal(t, node.Options.AccessModel, pubsubmodel.Presence)
 	require.Equal(t, node.Options.PublishModel, pubsubmodel.Publishers)
 	require.Equal(t, node.Options.SendLastPublishedItem, pubsubmodel.OnSubAndPresence)
-}
 
-func TestMySQLStorageGetPubSubNodeError(t *testing.T) {
-
-	s, mock := NewMock()
+	// error case
+	s, mock = NewMock()
 	mock.ExpectQuery("SELECT name, value FROM pubsub_node_options WHERE (.+)").
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnError(errMySQLStorage)
 
-	_, err := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	_, err = s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -117,4 +115,37 @@ func TestMySQLStorageInsertOrUpdatePubSubNodeItem(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 
 	require.Nil(t, err)
+}
+
+func TestMySQLStorageGetPubSubNodeItems(t *testing.T) {
+	s, mock := NewMock()
+	rows := sqlmock.NewRows([]string{"item_id", "publisher", "payload"})
+	rows.AddRow("1234", "ortuman@jackal.im", "<message/>")
+	rows.AddRow("5678", "noelia@jackal.im", "<iq type='get'/>")
+
+	mock.ExpectQuery("SELECT item_id, publisher, payload FROM pubsub_items WHERE node_id = (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnRows(rows)
+
+	items, err := s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.Nil(t, err)
+	require.Equal(t, 2, len(items))
+	require.Equal(t, "1234", items[0].ID)
+	require.Equal(t, "5678", items[1].ID)
+
+	// error case
+	s, mock = NewMock()
+	mock.ExpectQuery("SELECT item_id, publisher, payload FROM pubsub_items WHERE node_id = (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnError(errMySQLStorage)
+
+	_, err = s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.NotNil(t, err)
+	require.Equal(t, errMySQLStorage, err)
 }

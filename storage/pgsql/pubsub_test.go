@@ -40,6 +40,19 @@ func TestStorageInsertOrUpdatePubSubNode(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 
 	require.Nil(t, err)
+
+	// error case
+	s, mock = NewMock()
+	mock.ExpectQuery("SELECT name, value FROM pubsub_node_options WHERE (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnError(errGeneric)
+
+	_, err = s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.NotNil(t, err)
+	require.Equal(t, errGeneric, err)
 }
 
 func TestStorageGetPubSubNode(t *testing.T) {
@@ -64,21 +77,6 @@ func TestStorageGetPubSubNode(t *testing.T) {
 	require.Equal(t, node.Options.AccessModel, pubsubmodel.Presence)
 	require.Equal(t, node.Options.PublishModel, pubsubmodel.Publishers)
 	require.Equal(t, node.Options.SendLastPublishedItem, pubsubmodel.OnSubAndPresence)
-}
-
-func TestStorageGetPubSubNodeError(t *testing.T) {
-
-	s, mock := NewMock()
-	mock.ExpectQuery("SELECT name, value FROM pubsub_node_options WHERE (.+)").
-		WithArgs("ortuman@jackal.im", "princely_musings").
-		WillReturnError(errGeneric)
-
-	_, err := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
-
-	require.Nil(t, mock.ExpectationsWereMet())
-
-	require.NotNil(t, err)
-	require.Equal(t, errGeneric, err)
 }
 
 func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
@@ -109,4 +107,37 @@ func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 
 	require.Nil(t, err)
+}
+
+func TestStorageGetPubSubNodeItems(t *testing.T) {
+	s, mock := NewMock()
+	rows := sqlmock.NewRows([]string{"item_id", "publisher", "payload"})
+	rows.AddRow("1234", "ortuman@jackal.im", "<message/>")
+	rows.AddRow("5678", "noelia@jackal.im", "<iq type='get'/>")
+
+	mock.ExpectQuery("SELECT item_id, publisher, payload FROM pubsub_items WHERE node_id = (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnRows(rows)
+
+	items, err := s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.Nil(t, err)
+	require.Equal(t, 2, len(items))
+	require.Equal(t, "1234", items[0].ID)
+	require.Equal(t, "5678", items[1].ID)
+
+	// error case
+	s, mock = NewMock()
+	mock.ExpectQuery("SELECT item_id, publisher, payload FROM pubsub_items WHERE node_id = (.+)").
+		WithArgs("ortuman@jackal.im", "princely_musings").
+		WillReturnError(errGeneric)
+
+	_, err = s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+
+	require.Nil(t, mock.ExpectationsWereMet())
+
+	require.NotNil(t, err)
+	require.Equal(t, errGeneric, err)
 }
