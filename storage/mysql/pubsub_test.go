@@ -55,7 +55,7 @@ func TestMySQLStorageGetPubSubNode(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnRows(rows)
 
-	node, err := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	node, err := s.FetchPubSubNode("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -71,7 +71,7 @@ func TestMySQLStorageGetPubSubNode(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnError(errMySQLStorage)
 
-	_, err = s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	_, err = s.FetchPubSubNode("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -79,7 +79,7 @@ func TestMySQLStorageGetPubSubNode(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageInsertOrUpdatePubSubNodeItem(t *testing.T) {
+func TestMySQLStorageUpsertPubSubNodeItem(t *testing.T) {
 	payload := xmpp.NewIQType(uuid.New().String(), xmpp.GetType)
 
 	s, mock := NewMock()
@@ -127,7 +127,7 @@ func TestMySQLStorageGetPubSubNodeItems(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnRows(rows)
 
-	items, err := s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+	items, err := s.FetchPubSubNodeItems("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -142,7 +142,7 @@ func TestMySQLStorageGetPubSubNodeItems(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnError(errMySQLStorage)
 
-	_, err = s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+	_, err = s.FetchPubSubNodeItems("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 

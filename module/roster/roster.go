@@ -726,7 +726,7 @@ func (x *Roster) insertOrUpdateNotification(contact string, userJID *jid.JID, pr
 		JID:      userJID.String(),
 		Presence: presence,
 	}
-	return storage.InsertOrUpdateRosterNotification(rn)
+	return storage.UpsertRosterNotification(rn)
 }
 
 func (x *Roster) routePresencesFrom(from *jid.JID, to *jid.JID, presenceType string) {

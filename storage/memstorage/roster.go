@@ -111,9 +111,9 @@ func (m *Storage) FetchRosterItem(user, contact string) (*rostermodel.Item, erro
 	return ret, err
 }
 
-// InsertOrUpdateRosterNotification inserts a new roster notification entity
+// UpsertRosterNotification inserts a new roster notification entity
 // into storage, or updates it in case it's been previously inserted.
-func (m *Storage) InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error {
+func (m *Storage) UpsertRosterNotification(rn *rostermodel.Notification) error {
 	return m.inWriteLock(func() error {
 		rns := m.rosterNotifications[rn.Contact]
 		if rns != nil {

@@ -39,7 +39,7 @@ func (*disabledStorage) FetchRosterItem(username, jid string) (*rostermodel.Item
 	return nil, nil
 }
 
-func (*disabledStorage) InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error {
+func (*disabledStorage) UpsertRosterNotification(rn *rostermodel.Notification) error {
 	return nil
 }
 
@@ -103,7 +103,7 @@ func (*disabledStorage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	return nil
 }
 
-func (*disabledStorage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
+func (*disabledStorage) FetchPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	return nil, nil
 }
 
@@ -111,7 +111,7 @@ func (*disabledStorage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name 
 	return nil
 }
 
-func (*disabledStorage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+func (*disabledStorage) FetchPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
 	return nil, nil
 }
 
@@ -119,7 +119,7 @@ func (*disabledStorage) UpsertPubSubNodeAffiliation(affiliatiaon *pubsubmodel.Af
 	return nil
 }
 
-func (*disabledStorage) GetPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
+func (*disabledStorage) FetchPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
 	return nil, nil
 }
 

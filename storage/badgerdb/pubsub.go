@@ -13,7 +13,7 @@ func (b *Storage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	})
 }
 
-func (b *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
+func (b *Storage) FetchPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	var node pubsubmodel.Node
 	err := b.fetch(&node, b.pubSubStorageKey(host, name))
 	switch err {
@@ -31,7 +31,7 @@ func (b *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 	return errors.New("unimplemented method")
 }
 
-func (b *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+func (b *Storage) FetchPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
 	// TODO(ortuman): implement me!
 	return nil, errors.New("unimplemented method")
 }
@@ -41,7 +41,7 @@ func (b *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 	return errors.New("unimplemented method")
 }
 
-func (b *Storage) GetPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
+func (b *Storage) FetchPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
 	// TODO(ortuman): implement me!
 	return nil, errors.New("unimplemented method")
 }

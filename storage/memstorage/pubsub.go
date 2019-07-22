@@ -13,7 +13,7 @@ func (m *Storage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	})
 }
 
-func (m *Storage) GetPubSubNode(host, name string) (node *pubsubmodel.Node, err error) {
+func (m *Storage) FetchPubSubNode(host, name string) (node *pubsubmodel.Node, err error) {
 	err = m.inReadLock(func() error {
 		node = m.pubSubNodes[host+"-"+name]
 		return nil
@@ -26,7 +26,7 @@ func (m *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 	return errors.New("unimplemented method")
 }
 
-func (m *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+func (m *Storage) FetchPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
 	// TODO(ortuman): implement me!
 	return nil, errors.New("unimplemented method")
 }
@@ -36,7 +36,7 @@ func (m *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 	return errors.New("unimplemented method")
 }
 
-func (m *Storage) GetPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
+func (m *Storage) FetchPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
 	// TODO(ortuman): implement me!
 	return nil, errors.New("unimplemented method")
 }

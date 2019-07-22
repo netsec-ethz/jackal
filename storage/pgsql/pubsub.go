@@ -53,7 +53,7 @@ func (s *Storage) UpsertPubSubNode(node *pubsubmodel.Node) error {
 	})
 }
 
-func (s *Storage) GetPubSubNode(host, name string) (*pubsubmodel.Node, error) {
+func (s *Storage) FetchPubSubNode(host, name string) (*pubsubmodel.Node, error) {
 	rows, err := sq.Select("name", "value").
 		From("pubsub_node_options").
 		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
@@ -120,7 +120,7 @@ func (s *Storage) UpsertPubSubNodeItem(item *pubsubmodel.Item, host, name string
 	})
 }
 
-func (s *Storage) GetPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
+func (s *Storage) FetchPubSubNodeItems(host, name string) ([]pubsubmodel.Item, error) {
 	rows, err := sq.Select("item_id", "publisher", "payload").
 		From("pubsub_items").
 		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).
@@ -175,7 +175,7 @@ func (s *Storage) UpsertPubSubNodeAffiliation(affiliation *pubsubmodel.Affiliati
 	})
 }
 
-func (s *Storage) GetPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
+func (s *Storage) FetchPubSubNodeAffiliations(host, name string) ([]pubsubmodel.Affiliation, error) {
 	rows, err := sq.Select("jid", "affiliation").
 		From("pubsub_affiliations").
 		Where("node_id = (SELECT id FROM pubsub_nodes WHERE host = $1 AND name = $2)", host, name).

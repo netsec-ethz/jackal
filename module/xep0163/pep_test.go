@@ -67,7 +67,7 @@ func TestXEP163_CreateNode(t *testing.T) {
 	require.Equal(t, xmpp.ResultType, elem.Type())
 
 	// read node
-	n, _ := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	n, _ := s.FetchPubSubNode("ortuman@jackal.im", "princely_musings")
 	require.NotNil(t, n)
 	require.Equal(t, n.Options, defaultNodeOptions)
 }

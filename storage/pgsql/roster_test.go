@@ -188,7 +188,7 @@ func TestInsertRosterNotification(t *testing.T) {
 		WithArgs(args...).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := s.InsertOrUpdateRosterNotification(&rn)
+	err := s.UpsertRosterNotification(&rn)
 	require.Nil(t, mock.ExpectationsWereMet())
 	require.Nil(t, err)
 
@@ -197,7 +197,7 @@ func TestInsertRosterNotification(t *testing.T) {
 		WithArgs(args...).
 		WillReturnError(errGeneric)
 
-	err = s.InsertOrUpdateRosterNotification(&rn)
+	err = s.UpsertRosterNotification(&rn)
 	require.Nil(t, mock.ExpectationsWereMet())
 	require.Equal(t, errGeneric, err)
 }

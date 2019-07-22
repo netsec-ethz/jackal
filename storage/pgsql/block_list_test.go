@@ -20,7 +20,7 @@ const (
 )
 
 // Insert a valid block list item
-func TestInsertValidBlockListItem(t *testing.T) {
+func TestPgSQLInsertValidBlockListItem(t *testing.T) {
 	s, mock := NewMock()
 	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
 
@@ -34,7 +34,7 @@ func TestInsertValidBlockListItem(t *testing.T) {
 }
 
 // Insert the same row twice to test for key uniqueness validation
-func TestInsertDoubleBlockListItem(t *testing.T) {
+func TestPgSQLInsertDoubleBlockListItem(t *testing.T) {
 	s, mock := NewMock()
 	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
 
@@ -57,7 +57,7 @@ func TestInsertDoubleBlockListItem(t *testing.T) {
 }
 
 // Test fetching block list items
-func TestFetchBlockListItems(t *testing.T) {
+func TestPgSQLFetchBlockListItems(t *testing.T) {
 	var blockListColumns = []string{"username", "jid"}
 	s, mock := NewMock()
 
@@ -70,7 +70,7 @@ func TestFetchBlockListItems(t *testing.T) {
 }
 
 // Test error handling on fetching block list items
-func TestFetchBlockListItemsError(t *testing.T) {
+func TestPgSQLFetchBlockListItemsError(t *testing.T) {
 	s, mock := NewMock()
 
 	mock.ExpectQuery(blockListSelect).
@@ -83,7 +83,7 @@ func TestFetchBlockListItemsError(t *testing.T) {
 }
 
 // Test deleting an item from the block list
-func TestDeleteBlockListItems(t *testing.T) {
+func TestPgSQLDeleteBlockListItems(t *testing.T) {
 	s, mock := NewMock()
 	item := model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"}
 
@@ -99,7 +99,7 @@ func TestDeleteBlockListItems(t *testing.T) {
 }
 
 // Test error handling on deleting a row from the block list
-func TestDeleteBlockListItemsError(t *testing.T) {
+func TestPgSQLDeleteBlockListItemsError(t *testing.T) {
 	s, mock := NewMock()
 	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
 

@@ -81,9 +81,9 @@ func (b *Storage) FetchRosterItem(user, contact string) (*rostermodel.Item, erro
 	}
 }
 
-// InsertOrUpdateRosterNotification inserts a new roster notification entity
+// UpsertRosterNotification inserts a new roster notification entity
 // into storage, or updates it in case it's been previously inserted.
-func (b *Storage) InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error {
+func (b *Storage) UpsertRosterNotification(rn *rostermodel.Notification) error {
 	return b.db.Update(func(tx *badger.Txn) error {
 		return b.insertOrUpdate(rn, b.rosterNotificationKey(rn.Contact, rn.JID), tx)
 	})

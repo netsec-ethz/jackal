@@ -288,7 +288,7 @@ func TestRoster_OnlineJIDs(t *testing.T) {
 	})
 
 	// pending notification
-	storage.InsertOrUpdateRosterNotification(&rostermodel.Notification{
+	storage.UpsertRosterNotification(&rostermodel.Notification{
 		Contact:  "ortuman",
 		JID:      j3.ToBareJID().String(),
 		Presence: xmpp.NewPresence(j3.ToBareJID(), j1.ToBareJID(), xmpp.SubscribeType),

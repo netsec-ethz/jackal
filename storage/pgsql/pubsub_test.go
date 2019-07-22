@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStorageInsertOrUpdatePubSubNode(t *testing.T) {
+func TestPgSQLStorageUpsertPubSubNode(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO pubsub_nodes (.+) ON CONFLICT (.+) DO NOTHING").
@@ -47,7 +47,7 @@ func TestStorageInsertOrUpdatePubSubNode(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnError(errGeneric)
 
-	_, err = s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	_, err = s.FetchPubSubNode("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -55,7 +55,7 @@ func TestStorageInsertOrUpdatePubSubNode(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestStorageGetPubSubNode(t *testing.T) {
+func TestPgSQLStorageFetchPubSubNode(t *testing.T) {
 	var cols = []string{"name", "value"}
 
 	s, mock := NewMock()
@@ -68,7 +68,7 @@ func TestStorageGetPubSubNode(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnRows(rows)
 
-	node, err := s.GetPubSubNode("ortuman@jackal.im", "princely_musings")
+	node, err := s.FetchPubSubNode("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -79,7 +79,7 @@ func TestStorageGetPubSubNode(t *testing.T) {
 	require.Equal(t, node.Options.SendLastPublishedItem, pubsubmodel.OnSubAndPresence)
 }
 
-func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
+func TestPgSQLStorageUpsertPubSubNodeItem(t *testing.T) {
 	payload := xmpp.NewIQType(uuid.New().String(), xmpp.GetType)
 
 	s, mock := NewMock()
@@ -109,7 +109,7 @@ func TestStorage_InsertOrUpdatePubSubNodeItem(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestStorageGetPubSubNodeItems(t *testing.T) {
+func TestPgSQLStorageFetchPubSubNodeItems(t *testing.T) {
 	s, mock := NewMock()
 	rows := sqlmock.NewRows([]string{"item_id", "publisher", "payload"})
 	rows.AddRow("1234", "ortuman@jackal.im", "<message/>")
@@ -119,7 +119,7 @@ func TestStorageGetPubSubNodeItems(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnRows(rows)
 
-	items, err := s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+	items, err := s.FetchPubSubNodeItems("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 
@@ -134,7 +134,7 @@ func TestStorageGetPubSubNodeItems(t *testing.T) {
 		WithArgs("ortuman@jackal.im", "princely_musings").
 		WillReturnError(errGeneric)
 
-	_, err = s.GetPubSubNodeItems("ortuman@jackal.im", "princely_musings")
+	_, err = s.FetchPubSubNodeItems("ortuman@jackal.im", "princely_musings")
 
 	require.Nil(t, mock.ExpectationsWereMet())
 

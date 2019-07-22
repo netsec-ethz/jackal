@@ -14,7 +14,7 @@ type rosterStorage interface {
 	FetchRosterItems(username string) ([]rostermodel.Item, rostermodel.Version, error)
 	FetchRosterItemsInGroups(username string, groups []string) ([]rostermodel.Item, rostermodel.Version, error)
 	FetchRosterItem(username, jid string) (*rostermodel.Item, error)
-	InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error
+	UpsertRosterNotification(rn *rostermodel.Notification) error
 	DeleteRosterNotification(contact, jid string) error
 	FetchRosterNotification(contact string, jid string) (*rostermodel.Notification, error)
 	FetchRosterNotifications(contact string) ([]rostermodel.Notification, error)
@@ -48,10 +48,10 @@ func FetchRosterItem(username, jid string) (*rostermodel.Item, error) {
 	return instance().FetchRosterItem(username, jid)
 }
 
-// InsertOrUpdateRosterNotification inserts a new roster notification entity
+// UpsertRosterNotification inserts a new roster notification entity
 // into storage, or updates it in case it's been previously inserted.
-func InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error {
-	return instance().InsertOrUpdateRosterNotification(rn)
+func UpsertRosterNotification(rn *rostermodel.Notification) error {
+	return instance().UpsertRosterNotification(rn)
 }
 
 // DeleteRosterNotification deletes a roster notification entity from storage.

@@ -178,9 +178,9 @@ func (s *Storage) FetchRosterItem(username, jid string) (*rostermodel.Item, erro
 	}
 }
 
-// InsertOrUpdateRosterNotification inserts a new roster notification entity
+// UpsertRosterNotification inserts a new roster notification entity
 // into storage, or updates it in case it's been previously inserted.
-func (s *Storage) InsertOrUpdateRosterNotification(rn *rostermodel.Notification) error {
+func (s *Storage) UpsertRosterNotification(rn *rostermodel.Notification) error {
 	presenceXML := rn.Presence.String()
 
 	q := sq.Insert("roster_notifications").

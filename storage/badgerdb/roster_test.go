@@ -96,8 +96,8 @@ func TestBadgerDB_RosterNotifications(t *testing.T) {
 		JID:      "romeo@jackal.im",
 		Presence: &xmpp.Presence{},
 	}
-	require.NoError(t, h.db.InsertOrUpdateRosterNotification(&rn1))
-	require.NoError(t, h.db.InsertOrUpdateRosterNotification(&rn2))
+	require.NoError(t, h.db.UpsertRosterNotification(&rn1))
+	require.NoError(t, h.db.UpsertRosterNotification(&rn2))
 
 	rns, err := h.db.FetchRosterNotifications("ortuman")
 	require.Nil(t, err)
