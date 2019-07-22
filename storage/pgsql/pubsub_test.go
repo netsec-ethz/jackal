@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPgSQLStorageUpsertPubSubNode(t *testing.T) {
+func TestPgSQLUpsertPubSubNode(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO pubsub_nodes (.+) ON CONFLICT (.+) DO NOTHING").
@@ -55,7 +55,7 @@ func TestPgSQLStorageUpsertPubSubNode(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestPgSQLStorageFetchPubSubNode(t *testing.T) {
+func TestPgSQLFetchPubSubNode(t *testing.T) {
 	var cols = []string{"name", "value"}
 
 	s, mock := NewMock()
@@ -79,7 +79,7 @@ func TestPgSQLStorageFetchPubSubNode(t *testing.T) {
 	require.Equal(t, node.Options.SendLastPublishedItem, pubsubmodel.OnSubAndPresence)
 }
 
-func TestPgSQLStorageUpsertPubSubNodeItem(t *testing.T) {
+func TestPgSQLUpsertPubSubNodeItem(t *testing.T) {
 	payload := xmpp.NewIQType(uuid.New().String(), xmpp.GetType)
 
 	s, mock := NewMock()
@@ -109,7 +109,7 @@ func TestPgSQLStorageUpsertPubSubNodeItem(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestPgSQLStorageFetchPubSubNodeItems(t *testing.T) {
+func TestPgSQLFetchPubSubNodeItems(t *testing.T) {
 	s, mock := NewMock()
 	rows := sqlmock.NewRows([]string{"item_id", "publisher", "payload"})
 	rows.AddRow("1234", "ortuman@jackal.im", "<message/>")

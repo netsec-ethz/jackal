@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertPrivateXML(t *testing.T) {
+func TestPgSQLInsertPrivateXML(t *testing.T) {
 	private := xmpp.NewElementNamespace("exodus", "exodus:ns")
 	rawXML := private.String()
 
@@ -36,7 +36,7 @@ func TestInsertPrivateXML(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestFetchPrivateXML(t *testing.T) {
+func TestPgSQLFetchPrivateXML(t *testing.T) {
 	var privateColumns = []string{"data"}
 
 	s, mock := NewMock()

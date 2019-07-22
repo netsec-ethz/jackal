@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageUpsertPubSubNode(t *testing.T) {
+func TestMySQLUpsertPubSubNode(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO pubsub_nodes (.+) ON DUPLICATE KEY UPDATE (.+)").
@@ -42,7 +42,7 @@ func TestMySQLStorageUpsertPubSubNode(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestMySQLStorageGetPubSubNode(t *testing.T) {
+func TestMySQLFetchPubSubNode(t *testing.T) {
 	var cols = []string{"name", "value"}
 
 	s, mock := NewMock()
@@ -79,7 +79,7 @@ func TestMySQLStorageGetPubSubNode(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageUpsertPubSubNodeItem(t *testing.T) {
+func TestMySQLUpsertPubSubNodeItem(t *testing.T) {
 	payload := xmpp.NewIQType(uuid.New().String(), xmpp.GetType)
 
 	s, mock := NewMock()
@@ -117,7 +117,7 @@ func TestMySQLStorageUpsertPubSubNodeItem(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestMySQLStorageGetPubSubNodeItems(t *testing.T) {
+func TestMySQLFetchPubSubNodeItems(t *testing.T) {
 	s, mock := NewMock()
 	rows := sqlmock.NewRows([]string{"item_id", "publisher", "payload"})
 	rows.AddRow("1234", "ortuman@jackal.im", "<message/>")

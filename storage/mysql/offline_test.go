@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertOfflineMessages(t *testing.T) {
+func TestMySQLInsertOfflineMessages(t *testing.T) {
 	j, _ := jid.NewWithString("ortuman@jackal.im/balcony", false)
 	message := xmpp.NewElementName("message")
 	message.SetID(uuid.New())
@@ -42,7 +42,7 @@ func TestMySQLStorageInsertOfflineMessages(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestMySQLStorageCountOfflineMessages(t *testing.T) {
+func TestMySQLCountOfflineMessages(t *testing.T) {
 	countColums := []string{"count"}
 
 	s, mock := NewMock()
@@ -73,7 +73,7 @@ func TestMySQLStorageCountOfflineMessages(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageFetchOfflineMessages(t *testing.T) {
+func TestMySQLFetchOfflineMessages(t *testing.T) {
 	var offlineMessagesColumns = []string{"data"}
 
 	s, mock := NewMock()
@@ -113,7 +113,7 @@ func TestMySQLStorageFetchOfflineMessages(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageDeleteOfflineMessages(t *testing.T) {
+func TestMySQLDeleteOfflineMessages(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectExec("DELETE FROM offline_messages (.+)").
 		WithArgs("ortuman").WillReturnResult(sqlmock.NewResult(0, 1))

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertOfflineMessages(t *testing.T) {
+func TestPgSQLInsertOfflineMessages(t *testing.T) {
 	j, _ := jid.NewWithString("ortuman@jackal.im/balcony", false)
 	message := xmpp.NewElementName("message")
 	message.SetID(uuid.New())
@@ -42,7 +42,7 @@ func TestInsertOfflineMessages(t *testing.T) {
 	require.NotNil(t, err)
 }
 
-func TestCountOfflineMessages(t *testing.T) {
+func TestPgSQLCountOfflineMessages(t *testing.T) {
 	countColums := []string{"count"}
 
 	s, mock := NewMock()
@@ -73,7 +73,7 @@ func TestCountOfflineMessages(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestFetchOfflineMessages(t *testing.T) {
+func TestPgSQLFetchOfflineMessages(t *testing.T) {
 	var offlineMessagesColumns = []string{"data"}
 
 	s, mock := NewMock()
@@ -113,7 +113,7 @@ func TestFetchOfflineMessages(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestDeleteOfflineMessages(t *testing.T) {
+func TestPgSQLDeleteOfflineMessages(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectExec("DELETE FROM offline_messages (.+)").
 		WithArgs("ortuman").WillReturnResult(sqlmock.NewResult(0, 1))

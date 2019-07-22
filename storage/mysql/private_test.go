@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertPrivateXML(t *testing.T) {
+func TestMySQLInsertPrivateXML(t *testing.T) {
 	private := xmpp.NewElementNamespace("exodus", "exodus:ns")
 	rawXML := private.String()
 
@@ -36,7 +36,7 @@ func TestMySQLStorageInsertPrivateXML(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageFetchPrivateXML(t *testing.T) {
+func TestMySQLFetchPrivateXML(t *testing.T) {
 	var privateColumns = []string{"data"}
 
 	s, mock := NewMock()

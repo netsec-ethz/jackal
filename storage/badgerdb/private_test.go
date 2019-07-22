@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_PrivateXML(t *testing.T) {
+func TestBadgerDdPrivateXML(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()

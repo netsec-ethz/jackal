@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_User(t *testing.T) {
+func TestBadgerDbUser(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()

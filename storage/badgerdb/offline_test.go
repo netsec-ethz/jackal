@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_OfflineMessages(t *testing.T) {
+func TestBadgerDbOfflineMessages(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_VCard(t *testing.T) {
+func TestBadgerDdVCard(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertUser(t *testing.T) {
+func TestPgSQLInsertUser(t *testing.T) {
 	from, _ := jid.NewWithString("ortuman@jackal.im/Psi+", true)
 	to, _ := jid.NewWithString("ortuman@jackal.im", true)
 	p := xmpp.NewPresence(from, to, xmpp.UnavailableType)
@@ -42,7 +42,7 @@ func TestInsertUser(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestPgSQLDeleteUser(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM offline_messages (.+)").
@@ -74,7 +74,7 @@ func TestDeleteUser(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestFetchUser(t *testing.T) {
+func TestPgSQLFetchUser(t *testing.T) {
 	from, _ := jid.NewWithString("ortuman@jackal.im/Psi+", true)
 	to, _ := jid.NewWithString("ortuman@jackal.im", true)
 	p := xmpp.NewPresence(from, to, xmpp.UnavailableType)
@@ -106,7 +106,7 @@ func TestFetchUser(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestUserExists(t *testing.T) {
+func TestPgSQLUserExists(t *testing.T) {
 	countColums := []string{"count"}
 
 	s, mock := NewMock()

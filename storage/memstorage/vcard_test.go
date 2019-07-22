@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemoryStorage_InsertVCard(t *testing.T) {
+func TestMemoryInsertVCard(t *testing.T) {
 	vCard := xmpp.NewElementName("vCard")
 	fn := xmpp.NewElementName("FN")
 	fn.SetText("Miguel Ángel")
@@ -25,7 +25,7 @@ func TestMemoryStorage_InsertVCard(t *testing.T) {
 	require.Nil(t, s.UpsertVCard(vCard, "ortuman"))
 }
 
-func TestMemoryStorage_FetchVCard(t *testing.T) {
+func TestMemoryFetchVCard(t *testing.T) {
 	vCard := xmpp.NewElementName("vCard")
 	fn := xmpp.NewElementName("FN")
 	fn.SetText("Miguel Ángel")

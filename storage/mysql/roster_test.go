@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertRosterItem(t *testing.T) {
+func TestMySQLInsertRosterItem(t *testing.T) {
 	groups := []string{"Buddies", "Family"}
 	ri := rostermodel.Item{
 		Username:     "user",
@@ -77,7 +77,7 @@ func TestMySQLStorageInsertRosterItem(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestMySQLStorageDeleteRosterItem(t *testing.T) {
+func TestMySQLDeleteRosterItem(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO roster_versions (.+) ON DUPLICATE KEY UPDATE (.+)").
@@ -106,7 +106,7 @@ func TestMySQLStorageDeleteRosterItem(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageFetchRosterItems(t *testing.T) {
+func TestMySQLFetchRosterItems(t *testing.T) {
 	var riColumns = []string{"user", "contact", "name", "subscription", "`groups`", "ask", "ver"}
 
 	s, mock := NewMock()
@@ -181,7 +181,7 @@ func TestMySQLStorageFetchRosterItems(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestMySQLStorageInsertRosterNotification(t *testing.T) {
+func TestMySQLInsertRosterNotification(t *testing.T) {
 	rn := rostermodel.Notification{
 		Contact:  "ortuman",
 		JID:      "romeo",
@@ -214,7 +214,7 @@ func TestMySQLStorageInsertRosterNotification(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageDeleteRosterNotification(t *testing.T) {
+func TestMySQLDeleteRosterNotification(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectExec("DELETE FROM roster_notifications (.+)").
 		WithArgs("user", "contact").WillReturnResult(sqlmock.NewResult(0, 1))
@@ -232,7 +232,7 @@ func TestMySQLStorageDeleteRosterNotification(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageFetchRosterNotifications(t *testing.T) {
+func TestMySQLFetchRosterNotifications(t *testing.T) {
 	var rnColumns = []string{"user", "contact", "elements"}
 
 	s, mock := NewMock()

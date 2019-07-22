@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemoryStorage_InsertOrUpdateBlockListItems(t *testing.T) {
+func TestMemoryInsertOrUpdateBlockListItems(t *testing.T) {
 	items := []model.BlockListItem{
 		{Username: "ortuman", JID: "user@jackal.im"},
 		{Username: "ortuman", JID: "romeo@jackal.im"},
@@ -23,7 +23,7 @@ func TestMemoryStorage_InsertOrUpdateBlockListItems(t *testing.T) {
 	require.Equal(t, ErrMockedError, s.InsertBlockListItems(items))
 	s.DisableMockedError()
 
-	s.InsertBlockListItems(items)
+	_ = s.InsertBlockListItems(items)
 
 	s.EnableMockedError()
 	_, err := s.FetchBlockListItems("ortuman")
@@ -34,21 +34,21 @@ func TestMemoryStorage_InsertOrUpdateBlockListItems(t *testing.T) {
 	require.Equal(t, items, sItems)
 }
 
-func TestMemoryStorage_DeleteBlockListItems(t *testing.T) {
+func TestMemoryDeleteBlockListItems(t *testing.T) {
 	items := []model.BlockListItem{
 		{Username: "ortuman", JID: "user@jackal.im"},
 		{Username: "ortuman", JID: "romeo@jackal.im"},
 		{Username: "ortuman", JID: "juliet@jackal.im"},
 	}
 	s := New()
-	s.InsertBlockListItems(items)
+	_ = s.InsertBlockListItems(items)
 
 	delItems := []model.BlockListItem{{Username: "ortuman", JID: "romeo@jackal.im"}}
 	s.EnableMockedError()
 	require.Equal(t, ErrMockedError, s.DeleteBlockListItems(delItems))
 	s.DisableMockedError()
 
-	s.DeleteBlockListItems(delItems)
+	_ = s.DeleteBlockListItems(delItems)
 	sItems, _ := s.FetchBlockListItems("ortuman")
 	require.Equal(t, []model.BlockListItem{
 		{Username: "ortuman", JID: "user@jackal.im"},

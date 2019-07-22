@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_RosterItems(t *testing.T) {
+func TestBadgerDdRosterItems(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()
@@ -80,7 +80,7 @@ func TestBadgerDB_RosterItems(t *testing.T) {
 	require.Equal(t, 0, len(ris))
 }
 
-func TestBadgerDB_RosterNotifications(t *testing.T) {
+func TestBadgerDdRosterNotifications(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()

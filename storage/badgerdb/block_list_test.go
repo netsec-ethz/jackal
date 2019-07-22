@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBadgerDB_BlockListItems(t *testing.T) {
+func TestBadgerDbBlockListItems(t *testing.T) {
 	t.Parallel()
 
 	h := tUtilBadgerDBSetup()
@@ -35,7 +35,7 @@ func TestBadgerDB_BlockListItems(t *testing.T) {
 	require.Equal(t, items, sItems)
 
 	items = append(items[:1], items[2:]...)
-	h.db.DeleteBlockListItems([]model.BlockListItem{{Username: "ortuman", JID: "romeo@jackal.im"}})
+	_ = h.db.DeleteBlockListItems([]model.BlockListItem{{Username: "ortuman", JID: "romeo@jackal.im"}})
 
 	sItems, err = h.db.FetchBlockListItems("ortuman")
 	sort.Slice(items, func(i, j int) bool { return items[i].JID < items[j].JID })

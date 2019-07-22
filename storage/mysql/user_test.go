@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertUser(t *testing.T) {
+func TestMySQLInsertUser(t *testing.T) {
 	from, _ := jid.NewWithString("ortuman@jackal.im/Psi+", true)
 	to, _ := jid.NewWithString("ortuman@jackal.im", true)
 	p := xmpp.NewPresence(from, to, xmpp.UnavailableType)
@@ -41,7 +41,7 @@ func TestMySQLStorageInsertUser(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageDeleteUser(t *testing.T) {
+func TestMySQLDeleteUser(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM offline_messages (.+)").
@@ -73,7 +73,7 @@ func TestMySQLStorageDeleteUser(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageFetchUser(t *testing.T) {
+func TestMySQLFetchUser(t *testing.T) {
 	from, _ := jid.NewWithString("ortuman@jackal.im/Psi+", true)
 	to, _ := jid.NewWithString("ortuman@jackal.im", true)
 	p := xmpp.NewPresence(from, to, xmpp.UnavailableType)
@@ -105,7 +105,7 @@ func TestMySQLStorageFetchUser(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageUserExists(t *testing.T) {
+func TestMySQLUserExists(t *testing.T) {
 	countColums := []string{"count"}
 
 	s, mock := NewMock()

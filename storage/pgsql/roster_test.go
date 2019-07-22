@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertRosterItem(t *testing.T) {
+func TestPgSQLInsertRosterItem(t *testing.T) {
 	groups := []string{"Buddies", "Family"}
 	ri := rostermodel.Item{
 		Username:     "user",
@@ -74,7 +74,7 @@ func TestInsertRosterItem(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteRosterItem(t *testing.T) {
+func TestPgSQLDeleteRosterItem(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT INTO roster_versions (.+) ON CONFLICT (.+) DO UPDATE SET (.+)").
@@ -103,7 +103,7 @@ func TestDeleteRosterItem(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestFetchRosterItems(t *testing.T) {
+func TestPgSQLFetchRosterItems(t *testing.T) {
 	var riColumns = []string{"user", "contact", "name", "subscription", "`groups`", "ask", "ver"}
 
 	s, mock := NewMock()
@@ -169,7 +169,7 @@ func TestFetchRosterItems(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestInsertRosterNotification(t *testing.T) {
+func TestPgSQLInsertRosterNotification(t *testing.T) {
 	rn := rostermodel.Notification{
 		Contact:  "ortuman",
 		JID:      "romeo",
@@ -202,7 +202,7 @@ func TestInsertRosterNotification(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestDeleteRosterNotification(t *testing.T) {
+func TestPgSQLDeleteRosterNotification(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectExec("DELETE FROM roster_notifications (.+)").
 		WithArgs("user", "contact").WillReturnResult(sqlmock.NewResult(0, 1))
@@ -220,7 +220,7 @@ func TestDeleteRosterNotification(t *testing.T) {
 	require.Equal(t, errGeneric, err)
 }
 
-func TestFetchRosterNotifications(t *testing.T) {
+func TestPgSQLFetchRosterNotifications(t *testing.T) {
 	var rnColumns = []string{"user", "contact", "elements"}
 
 	s, mock := NewMock()

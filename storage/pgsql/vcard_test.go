@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInsertVCard(t *testing.T) {
+func TestPgSQLInsertVCard(t *testing.T) {
 	vCard := xmpp.NewElementName("vCard")
 	rawXML := vCard.String()
 
@@ -37,7 +37,7 @@ func TestInsertVCard(t *testing.T) {
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
-func TestFetchVCard(t *testing.T) {
+func TestPgSQLFetchVCard(t *testing.T) {
 	var vCardColumns = []string{"vcard"}
 
 	s, mock := NewMock()

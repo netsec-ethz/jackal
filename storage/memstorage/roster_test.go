@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemoryStorage_InsertRosterItem(t *testing.T) {
+func TestMemoryInsertRosterItem(t *testing.T) {
 	g := []string{"general", "friends"}
 	ri := rostermodel.Item{
 		Username:     "user",
@@ -38,7 +38,7 @@ func TestMemoryStorage_InsertRosterItem(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestMemoryStorage_FetchRosterItem(t *testing.T) {
+func TestMemoryFetchRosterItem(t *testing.T) {
 	g := []string{"general", "friends"}
 	ri := rostermodel.Item{
 		Username:     "user",
@@ -50,7 +50,7 @@ func TestMemoryStorage_FetchRosterItem(t *testing.T) {
 		Groups:       g,
 	}
 	s := New()
-	s.UpsertRosterItem(&ri)
+	_, _ = s.UpsertRosterItem(&ri)
 
 	s.EnableMockedError()
 	_, err := s.FetchRosterItem("user", "contact")
@@ -66,7 +66,7 @@ func TestMemoryStorage_FetchRosterItem(t *testing.T) {
 	require.Equal(t, "contact", ri4.JID)
 }
 
-func TestMemoryStorage_FetchRosterItems(t *testing.T) {
+func TestMemoryFetchRosterItems(t *testing.T) {
 	ri := rostermodel.Item{
 		Username:     "user",
 		JID:          "contact@jackal.im",
@@ -96,9 +96,9 @@ func TestMemoryStorage_FetchRosterItems(t *testing.T) {
 	}
 
 	s := New()
-	s.UpsertRosterItem(&ri)
-	s.UpsertRosterItem(&ri2)
-	s.UpsertRosterItem(&ri3)
+	_, _ = s.UpsertRosterItem(&ri)
+	_, _ = s.UpsertRosterItem(&ri2)
+	_, _ = s.UpsertRosterItem(&ri3)
 
 	s.EnableMockedError()
 	_, _, err := s.FetchRosterItems("user")
@@ -112,7 +112,7 @@ func TestMemoryStorage_FetchRosterItems(t *testing.T) {
 	require.Equal(t, 1, len(ris))
 }
 
-func TestMemoryStorage_DeleteRosterItem(t *testing.T) {
+func TestMemoryDeleteRosterItem(t *testing.T) {
 	g := []string{"general", "friends"}
 	ri := rostermodel.Item{
 		Username:     "user",
@@ -124,7 +124,7 @@ func TestMemoryStorage_DeleteRosterItem(t *testing.T) {
 		Groups:       g,
 	}
 	s := New()
-	s.UpsertRosterItem(&ri)
+	_, _ = s.UpsertRosterItem(&ri)
 
 	s.EnableMockedError()
 	_, err := s.DeleteRosterItem("user", "contact")
@@ -139,7 +139,7 @@ func TestMemoryStorage_DeleteRosterItem(t *testing.T) {
 	require.Nil(t, ri2)
 }
 
-func TestMemoryStorage_InsertRosterNotification(t *testing.T) {
+func TestMemoryInsertRosterNotification(t *testing.T) {
 	rn := rostermodel.Notification{
 		Contact:  "ortuman",
 		JID:      "romeo@jackal.im",
@@ -164,13 +164,13 @@ func TestMemoryStorage_FetchRosterNotifications(t *testing.T) {
 		Presence: &xmpp.Presence{},
 	}
 	s := New()
-	s.UpsertRosterNotification(&rn1)
-	s.UpsertRosterNotification(&rn2)
+	_ = s.UpsertRosterNotification(&rn1)
+	_ = s.UpsertRosterNotification(&rn2)
 
 	from, _ := jid.NewWithString("ortuman2@jackal.im", true)
 	to, _ := jid.NewWithString("romeo@jackal.im", true)
 	rn2.Presence = xmpp.NewPresence(from, to, xmpp.SubscribeType)
-	s.UpsertRosterNotification(&rn2)
+	_ = s.UpsertRosterNotification(&rn2)
 
 	s.EnableMockedError()
 	_, err := s.FetchRosterNotifications("romeo")
@@ -183,14 +183,14 @@ func TestMemoryStorage_FetchRosterNotifications(t *testing.T) {
 	require.Equal(t, "ortuman2@jackal.im", rns[1].JID)
 }
 
-func TestMemoryStorage_DeleteRosterNotification(t *testing.T) {
+func TestMemoryDeleteRosterNotification(t *testing.T) {
 	rn1 := rostermodel.Notification{
 		Contact:  "ortuman",
 		JID:      "romeo@jackal.im",
 		Presence: &xmpp.Presence{},
 	}
 	s := New()
-	s.UpsertRosterNotification(&rn1)
+	_ = s.UpsertRosterNotification(&rn1)
 
 	s.EnableMockedError()
 	require.Equal(t, ErrMockedError, s.DeleteRosterNotification("ortuman", "romeo@jackal.im"))

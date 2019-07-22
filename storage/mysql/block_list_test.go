@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMySQLStorageInsertBlockListItems(t *testing.T) {
+func TestMySQLInsertBlockListItems(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("INSERT IGNORE INTO blocklist_items (.+)").
@@ -55,7 +55,7 @@ func TestMySQLFetchBlockListItems(t *testing.T) {
 	require.Equal(t, errMySQLStorage, err)
 }
 
-func TestMySQLStorageDeleteBlockListItems(t *testing.T) {
+func TestMySQLDeleteBlockListItems(t *testing.T) {
 	s, mock := NewMock()
 	mock.ExpectBegin()
 	mock.ExpectExec("DELETE FROM blocklist_items (.+)").
