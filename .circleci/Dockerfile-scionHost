@@ -16,7 +16,7 @@ RUN cd ${SC} && ./env/deps
 RUN cd ${SC} && make
 ## To be replaced by the package installation
 
-COPY ./setup/reloadASConfig.sh ${SC}/reloadASConfig.sh
+COPY ./setup/loadASConfig.sh ${SC}/loadASConfig.sh
 COPY ./setup/share_zk.sh ${SC}/share_zk.sh
 RUN mkdir ${SC}/gen-cache
 

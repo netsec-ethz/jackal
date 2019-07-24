@@ -26,7 +26,7 @@ jobs:
       BASH_ENV: "~/repo/.circleci/bash_env.sh"
       SCION_SRC: "https://github.com/netsec-ethz/netsec-scion"
       SC: "/home/scion/go/src/github.com/scionproto/scion"
-      JACKAL: "/home/scion/go/src/github.com/ortuman/jackal"
+      JACKAL_DIR: "/home/scion/go/src/github.com/ortuman/jackal"
 
     steps:
       - checkout
@@ -34,37 +34,16 @@ jobs:
       - setup_remote_docker:
          docker_layer_caching: true
 
-      - run:
-          name: Setup coordinator
-          command: |
-            set -x
-            # XXX(matzf) This could probably mount the tested code, instead of fiddly copying.
-            # Otherwise, Dockerfile!
-
-            # We first start only the coordinator
-            sudo -E docker-compose -f .circleci/docker-compose.yml create coord
-            # create is deprecated in v18, use no-start when circleci updates its images
-            # docker-compose -f .circleci/docker-compose.yml up --no-start coord
-            sudo -E docker cp ./scionlab/ coord:/home/circleci/repo/scionlab
-            sudo -E docker cp ./.circleci/ coord:/home/circleci/repo/scionlab/.circleci/
-            sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d coord
-
       # Start integration tests
       - run:
           name: Start containers
           command: |
             set -x
-            # docker-compose will have started 5 containers, the one with the coordinator will be named `coord`
-            # Then we have one core AS container coreAS1301, two infra ASes infraAS1303 and infraAS1305 and
-            # a zookeeper instance they share.
-
-            # We start another container with curl in the same network as `coord` to check `coord` is ready.
-            # All exposed ports from `coord` are available on `localhost` in this new container.
-            sudo -E docker run --net circleci_as_net --name curl_test\
-              --rm --entrypoint /bin/bash circleci/buildpack-deps:xenial -c "until curl --retry 5 --retry-delay 1 http://172.31.0.10:8000/login/ 2>/dev/null; do sleep 0.1; done;"
-
             export coreAS1301IP=172.31.0.110 infraAS1303IP=172.31.0.111 infraAS1305IP=172.31.0.112
             sudo -E docker-compose -f .circleci/docker-compose.yml create zookeeper coreAS1301 infraAS1303 infraAS1305
+            sudo -E docker cp ./setup/config/coreAS1301_config.tar coreAS1301:/tmp/host_config.tar
+            sudo -E docker cp ./setup/config/infraAS1303_config.tar infraAS1303:/tmp/host_config.tar
+            sudo -E docker cp ./setup/config/infraAS1305_config.tar infraAS1305:/tmp/host_config.tar
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d zookeeper coreAS1301 infraAS1303 infraAS1305
 
       - run:
@@ -83,9 +62,9 @@ jobs:
           command: |
             set -x
             sudo -E docker exec infraAS1303 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1303 /bin/bash -c 'until [ `grep "msg="Registered with dispatcher" addr="19-ffaa:0:1303,[127.0.0.1]:52690" -s -r ~/jackal/jackal.log ]; do sleep 0.1; done;'
+            sudo -E docker exec infraAS1303 /bin/bash -c 'until [ `grep "19-ffaa:0:1303,[127.0.0.1]:52690" -q ~/jackal/jackal.log` ]; do cat ~/jackal/jackal.log; sleep 0.1; done;'
             sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "msg="Registered with dispatcher" addr="19-ffaa:0:1305,[127.0.0.1]:52690" -s -r ~/jackal/jackal.log ]; do sleep 0.1; done;'
+            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "19-ffaa:0:1305,[127.0.0.1]:52690" -q ~/jackal/jackal.log` ]; do sleep 0.1; done;'
 
 workflows:
   version: 2

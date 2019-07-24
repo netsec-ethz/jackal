@@ -1,6 +1,0 @@
-# Testing:
-django-nose
-django-webtest
-flake8
-flake8-formatter-junit-xml
-parameterized
