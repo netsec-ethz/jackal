@@ -88,6 +88,7 @@ func (s *server) listenScionConn(address *snet.Addr) error {
 	if err != nil {
 		return err
 	}
+	log.Infof("listening at %s", address)
 	s.lnQUIC = listener
 	atomic.StoreUint32(&s.listeningSCION, 1)
 	for atomic.LoadUint32(&s.listeningSCION) == 1 {

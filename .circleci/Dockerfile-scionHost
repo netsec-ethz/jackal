@@ -20,7 +20,9 @@ COPY ./setup/loadASConfig.sh ${SC}/loadASConfig.sh
 COPY ./setup/share_zk.sh ${SC}/share_zk.sh
 RUN mkdir ${SC}/gen-cache
 
-COPY ./setup/start_jackal.sh ${SC}/start_jackal.sh
+# install jackal dependencies
+COPY ./setup/install_jackal.sh ${SC}/install_jackal.sh
+RUN ./install_jackal.sh
 
 # Add environment variables for execution
 ENV PYTHONPATH ${SC}/python

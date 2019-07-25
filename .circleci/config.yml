@@ -41,9 +41,9 @@ jobs:
             set -x
             export coreAS1301IP=172.31.0.110 infraAS1303IP=172.31.0.111 infraAS1305IP=172.31.0.112
             sudo -E docker-compose -f .circleci/docker-compose.yml create zookeeper coreAS1301 infraAS1303 infraAS1305
-            sudo -E docker cp ./setup/config/coreAS1301_config.tar coreAS1301:/tmp/host_config.tar
-            sudo -E docker cp ./setup/config/infraAS1303_config.tar infraAS1303:/tmp/host_config.tar
-            sudo -E docker cp ./setup/config/infraAS1305_config.tar infraAS1305:/tmp/host_config.tar
+            sudo -E docker cp ./.circleci/setup/config/coreAS1301_config.tar coreAS1301:/tmp/host_config.tar
+            sudo -E docker cp ./.circleci/setup/config/infraAS1303_config.tar infraAS1303:/tmp/host_config.tar
+            sudo -E docker cp ./.circleci/setup/config/infraAS1305_config.tar infraAS1305:/tmp/host_config.tar
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d zookeeper coreAS1301 infraAS1303 infraAS1305
 
       - run:
@@ -62,9 +62,9 @@ jobs:
           command: |
             set -x
             sudo -E docker exec infraAS1303 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1303 /bin/bash -c 'until [ `grep "19-ffaa:0:1303,[127.0.0.1]:52690" -q ~/jackal/jackal.log` ]; do cat ~/jackal/jackal.log; sleep 0.1; done;'
+            sudo -E docker exec infraAS1303 /bin/bash -c 'until [ `grep "19-ffaa:0:1303,[127.0.0.1]" -q ~/jackal/jackal.log` ]; do cat ~/jackal/jackal.log; sleep 0.1; done;'
             sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "19-ffaa:0:1305,[127.0.0.1]:52690" -q ~/jackal/jackal.log` ]; do sleep 0.1; done;'
+            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "19-ffaa:0:1305,[127.0.0.1]" -q ~/jackal/jackal.log` ]; do sleep 0.1; done;'
 
 workflows:
   version: 2
