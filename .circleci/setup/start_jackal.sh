@@ -1,7 +1,9 @@
 #!/bin/bash
+cd ~/jackal
 sudo /etc/init.d/mysql start
+echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost' IDENTIFIED BY 'password';" | mysql -h localhost -u root -ppassword
 echo "CREATE DATABASE jackal;" | mysql -h localhost -u jackal -ppassword
-if [ "$JACKAL_ID" == "$server1" ]; then
+if [ "$JACKAL_ID" == "server1" ]; then
     echo "Jackal server 1 data"
     cp -r ~/go/src/github.com/ortuman/jackal/testdata/s1_data/* .
     mysql -h localhost -D jackal -u jackal -ppassword < server1.sql
