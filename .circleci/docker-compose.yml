@@ -86,8 +86,6 @@ services:
     command: -c "ls ${SC}/loadASConfig.sh; ${SC}/loadASConfig.sh; cat;"
 
   profanity1:
-    build:
-      context: .
     image: ubuntu:18.04
     container_name: profanity1
     working_dir: /home
