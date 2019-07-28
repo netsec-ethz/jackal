@@ -5,8 +5,8 @@ apt-get update -y
 apt-get install -y profanity
 
 # Set up the profanity account
-mkdir --parent /root/.local/share
-mv /home/c1_data/profanity /root/.local/share/
+mkdir --parent /root/.local/share/profanity
+cp /home/c1_data/profanity/* /root/.local/share/profanity/
 
 if [ "$CLIENT_ID" == "client1" ]; then
     echo "172.31.0.111 server1.xmpp" >> /etc/hosts
