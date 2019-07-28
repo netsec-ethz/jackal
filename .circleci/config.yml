@@ -68,6 +68,18 @@ jobs:
             sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
             sudo -E docker exec infraAS1305 /bin/bash -c 'until grep -q "19-ffaa:0:1305,\[127.0.0.1\]" ~/jackal/jackal.log; do sleep 1; done;'
 
+      - run:
+          name: Start XMPP client1
+          command: |
+            set -x
+            sudo -E docker-compose -f .circleci/docker-compose.yml create profanity1
+            sudo -E docker cp ./.circleci/setup/install_client.sh profanity1:/home/install_client.sh
+            sudo -E docker cp ./testdata/c1_data/ profanity1:/home/
+            sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d profanity1
+            sudo -E docker exec profanity1 /bin/bash -c '/home/install_client.sh'
+            sudo -E docker exec profanity1 /bin/bash -c 'until grep -q "logged in successfully" /root/.local/share/profanity/logs/profanity.log; do sleep 1; done;'
+
+
 workflows:
   version: 2
   tests:

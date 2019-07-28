@@ -84,3 +84,17 @@ services:
     tty: true
     entrypoint: /bin/bash
     command: -c "ls ${SC}/loadASConfig.sh; ${SC}/loadASConfig.sh; cat;"
+
+  profanity1:
+    build:
+      context: .
+    image: ubuntu:18.04
+    container_name: profanity1
+    working_dir: /home
+    networks:
+      as_net:
+        ipv4_address: 172.31.0.12
+    environment:
+      CLIENT_ID: client1
+    tty: true
+    entrypoint: /bin/bash

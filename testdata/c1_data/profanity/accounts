@@ -2,7 +2,6 @@
 enabled=true
 jid=user1@server1.xmpp
 resource=profanity
-muc.service=conference.server1.xmpp
 muc.nick=user1
 presence.last=online
 presence.login=online
