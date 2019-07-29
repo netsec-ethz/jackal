@@ -27,11 +27,6 @@ coverage.txt
 # Storage folder
 .data/
 
-# Certificate files
-#.cert/
-#server.key
-#server.crt
-
 # Project folders
 .idea/
 .vscode/

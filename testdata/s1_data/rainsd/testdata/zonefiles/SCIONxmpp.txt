@@ -1,3 +1,0 @@
-:Z: . . [
-    :A: server2.xmpp [ :scionip4:     18-ffaa:1:c21,[127.0.0.1] ]
-]

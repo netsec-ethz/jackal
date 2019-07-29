@@ -74,7 +74,7 @@ jobs:
             set -x
             sudo -E docker-compose -f .circleci/docker-compose.yml create profanity1
             sudo -E docker cp ./.circleci/setup/install_client.sh profanity1:/home/install_client.sh
-            sudo -E docker cp ./testdata/c1_data/ profanity1:/home/
+            sudo -E docker cp ./.circleci/testdata/c1_data/ profanity1:/home/
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d profanity1
             sudo -E docker exec profanity1 /bin/bash -c '/home/install_client.sh'
             sudo -E docker exec -it -d profanity1 profanity -a user1
@@ -86,7 +86,7 @@ jobs:
             set -x
             sudo -E docker-compose -f .circleci/docker-compose.yml create profanity2
             sudo -E docker cp ./.circleci/setup/install_client.sh profanity2:/home/install_client.sh
-            sudo -E docker cp ./testdata/c2_data/ profanity2:/home/
+            sudo -E docker cp ./.circleci/testdata/c2_data/ profanity2:/home/
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d profanity2
             sudo -E docker exec profanity2 /bin/bash -c '/home/install_client.sh'
             sudo -E docker exec -it -d profanity2 profanity -a user2
