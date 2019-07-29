@@ -17,7 +17,8 @@ else
     ./keymanager selfsign -s selfSignedRootDelegationAssertion.gob
     ./rainsd testdata/conf/SCIONnamingServerRoot.conf </dev/null &>/dev/null &
     ./publisher testdata/conf/SCIONpublisherXmpp.conf
-    echo "19-ffaa:0:1305,[127.0.0.1]:5022" >> /home/ubuntu/go/src/github.com/scionproto/scion/gen/rains.cfg
+    echo "19-ffaa:0:1305,[127.0.0.1]:5022" >> /home/scion/go/src/github.com/scionproto/scion/gen/rains.cfg
 fi
 
+cd ~/jackal
 ./jackal -c example.jackal.yml </dev/null &>/dev/null &
