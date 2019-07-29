@@ -21,7 +21,6 @@ COPY ./setup/share_zk.sh ${SC}/share_zk.sh
 RUN mkdir ${SC}/gen-cache
 
 # install jackal dependencies
-RUN echo "19-ffaa:0:1303,[127.0.0.1] server1.xmpp." | sudo tee -a /etc/hosts
 COPY ./setup/install_jackal.sh ${SC}/install_jackal.sh
 RUN ./install_jackal.sh
 

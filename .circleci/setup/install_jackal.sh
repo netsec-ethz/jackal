@@ -7,8 +7,6 @@ mkdir ortuman
 cd ortuman
 git clone https://github.com/mmalesev/jackal
 mkdir ~/jackal
-cd ~/jackal
-go1.12.2 build github.com/ortuman/jackal
 
 # Setting up the MySQL database
 sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password password'

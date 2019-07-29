@@ -92,6 +92,12 @@ jobs:
             sudo -E docker exec -it -d profanity2 profanity -a user2
             sudo -E docker exec profanity2 /bin/bash -c 'until grep -q "logged in successfully" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; sleep 1; done;'
 
+      - run:
+          name: Check if c2@s2 reached c1@s1
+          command: |
+            set -x
+            sudo -E docker exec profanity1 /bin/bash -c 'until grep -q "user2@server2\.xmpp" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; sleep 1; done;'
+
 workflows:
   version: 2
   tests:
