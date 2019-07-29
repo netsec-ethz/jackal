@@ -96,3 +96,15 @@ services:
       CLIENT_ID: client1
     tty: true
     entrypoint: /bin/bash
+
+  profanity2:
+    image: ubuntu:18.04
+    container_name: profanity2
+    working_dir: /home
+    networks:
+      as_net:
+        ipv4_address: 172.31.0.13
+    environment:
+      CLIENT_ID: client2
+    tty: true
+    entrypoint: /bin/bash

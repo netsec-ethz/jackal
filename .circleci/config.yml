@@ -78,8 +78,19 @@ jobs:
             sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d profanity1
             sudo -E docker exec profanity1 /bin/bash -c '/home/install_client.sh'
             sudo -E docker exec -it -d profanity1 profanity -a user1
-            sudo -E docker exec profanity1 /bin/bash -c 'until grep -q "logged in successfully" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; ls /root/.local/share/profanity; cat /root/.local/share/profanity/accounts; sleep 1; done;'
+            sudo -E docker exec profanity1 /bin/bash -c 'until grep -q "logged in successfully" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; sleep 1; done;'
 
+      - run:
+          name: Start XMPP client2
+          command: |
+            set -x
+            sudo -E docker-compose -f .circleci/docker-compose.yml create profanity2
+            sudo -E docker cp ./.circleci/setup/install_client.sh profanity2:/home/install_client.sh
+            sudo -E docker cp ./testdata/c2_data/ profanity2:/home/
+            sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d profanity2
+            sudo -E docker exec profanity2 /bin/bash -c '/home/install_client.sh'
+            sudo -E docker exec -it -d profanity2 profanity -a user2
+            sudo -E docker exec profanity2 /bin/bash -c 'until grep -q "logged in successfully" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; sleep 1; done;'
 
 workflows:
   version: 2
