@@ -1,7 +1,4 @@
 #!/bin/bash
-
-echo "19-ffaa:0:1303,[127:0:0:1] server1.xmpp." | sudo tee -a /etc/hosts
-
 # Compiling jackal
 go get golang.org/dl/go1.12.2
 go1.12.2 download
