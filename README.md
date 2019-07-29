@@ -37,6 +37,14 @@ You can check if the project has built successfully by running the following com
 ## Run jackal
 In order to run jackal, you have to specify the configuration in .yml file. An example .yml file is provided in the repository as example.jackal.yml. You need to do the following steps before you can run the server with the configuration specified in the example.jackal.yml.
 
+### SCION config
+In .yml configuration file, you can provide different options for the incoming SCION connections:
+* addr: SCION address where the server is listening for incoming connections (if "localhost", jackal determines the SCION localhost on startup)
+* port: Port listening for incoming SCION connections (default is 52690)
+* keep_alive: Time after which the unresponsive connection is broken.
+* cert_path: Absolute path to the certificate used in creating QUIC connection (can be the same as the certificate used in c2s IP connection)
+* priv_key_path: Private key corresponding to the certificate, also used in creating QUIC connection
+
 ### MySQL database creation
 Install MySQL:
 
