@@ -28,9 +28,9 @@ coverage.txt
 .data/
 
 # Certificate files
-.cert/
-server.key
-server.crt
+#.cert/
+#server.key
+#server.crt
 
 # Project folders
 .idea/
