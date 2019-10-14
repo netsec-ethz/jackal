@@ -16,7 +16,6 @@ require (
 	github.com/dgraph-io/badger v0.0.0-20190504012207-d2ebeac29495
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/frankban/quicktest v1.5.0 // indirect
 	github.com/go-sql-driver/mysql v0.0.0-20190423112050-d0a548181995
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/google/btree v0.0.0-20190326150332-20236160a414 // indirect
@@ -34,12 +33,13 @@ require (
 	github.com/lucas-clemente/quic-go v0.0.0-20190427152327-c135b4f1e34c
 	github.com/mattn/go-colorable v0.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
-	github.com/netsec-ethz/rains v0.0.0-20190430091116-64644121e0a4 // indirect
-	github.com/netsec-ethz/scion-apps v0.0.0-20190514205803-8808d7e4f76f
+	github.com/netsec-ethz/rains v0.0.0-20190912114116-83f56a7cb2d1 // indirect
+	github.com/netsec-ethz/scion-apps v0.0.0-20191003104124-7237654083b2
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v1.2.0
 	github.com/philhofer/fwd v1.0.0 // indirect
-	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
+	github.com/pierrec/lz4 v1.0.1 // indirect
+	github.com/pierrec/xxHash v0.1.5 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/scionproto/scion v0.0.0-00010101000000-000000000000
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
