@@ -24,6 +24,7 @@ import (
 	"github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/squic"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
 var listenerProvider = net.Listen
@@ -78,7 +79,7 @@ func (s *server) listenScionConn(address *snet.Addr) error {
 	var dispatcherPath string = "/run/shm/dispatcher/default.sock"
 
 	sciondPath = sciond.GetDefaultSCIONDPath(nil)
-	snet.Init(address.IA, sciondPath, dispatcherPath)
+	snet.Init(address.IA, sciondPath, reliable.NewDispatcherService(dispatcherPath))
 	err := squic.Init(s.cfg.Scion.Key, s.cfg.Scion.Cert)
 	if err != nil {
 		return err

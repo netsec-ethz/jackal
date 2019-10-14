@@ -21,6 +21,7 @@ import (
 	"github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/squic"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
 
 	libaddr "github.com/scionproto/scion/go/lib/addr"
 )
@@ -52,8 +53,7 @@ func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 
 		sciondPath := sciond.GetDefaultSCIONDPath(nil)
 		dispatcherPath := "/run/shm/dispatcher/default.sock"
-		snet.Init(local.IA, sciondPath, dispatcherPath)
-
+		snet.Init(local.IA, sciondPath, reliable.NewDispatcherService(dispatcherPath))
 		quicConfig := &quic.Config{
 			KeepAlive: true,
 		}
