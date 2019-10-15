@@ -40,13 +40,13 @@ jobs:
           command: |
             set -x
             export coreAS1301IP=172.31.0.110 infraAS1303IP=172.31.0.111 infraAS1305IP=172.31.0.112
-            sudo -E docker-compose -f .circleci/docker-compose.yml create zookeeper coreAS1301 infraAS1303 infraAS1305
+            sudo -E docker-compose -f .circleci/docker-compose.yml create coreAS1301 infraAS1303 infraAS1305
             sudo -E docker cp ./.circleci/setup/config/coreAS1301_config.tar coreAS1301:/tmp/host_config.tar
             sudo -E docker cp ./.circleci/setup/config/infraAS1303_config.tar infraAS1303:/tmp/host_config.tar
             sudo -E docker cp ./.circleci/setup/config/infraAS1305_config.tar infraAS1305:/tmp/host_config.tar
             sudo -E docker cp ./.circleci/setup/start_jackal.sh infraAS1303:${SC}/start_jackal.sh
             sudo -E docker cp ./.circleci/setup/start_jackal.sh infraAS1305:${SC}/start_jackal.sh
-            sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d zookeeper coreAS1301 infraAS1303 infraAS1305
+            sudo -E docker-compose -f .circleci/docker-compose.yml up --no-recreate -d coreAS1301 infraAS1303 infraAS1305
 
       - run:
           name: Check SCION connections
@@ -55,18 +55,18 @@ jobs:
             # Wait for the SCION services to start
             sudo -E docker exec coreAS1301 /bin/bash -c 'cd ${SC}; until [ `./supervisor/supervisor.sh status | grep RUNNING | wc -l` -ge 6 ]; do sleep 0.1; done;'
             # Wait for beaconing to start
-            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "Successfully verified PCB" -s -r ${SC}/logs/ | wc -l` -ge 5 ]; do sleep 0.1; done; ${SC}/bin/scmp echo -c 1 -local 19-ffaa:0:1305,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];'
-            sudo -E docker exec coreAS1301 /bin/bash -c "${SC}/bin/scmp echo -c 1 -local 19-ffaa:0:1301,[127.0.0.1] -remote 19-ffaa:0:1303,[127.0.0.1]"
-            sudo -E docker exec infraAS1303 /bin/bash -c "grep -m 5 'Successfully verified PCB' -r ${SC}/logs/; ${SC}/bin/scmp echo -c 1 -local 19-ffaa:0:1303,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];"
+            sudo -E docker exec infraAS1305 /bin/bash -c 'until [ `grep "Registered beacons" -s -r /var/log/scion/ | wc -l` -ge 5 ]; do sleep 0.1; done; scmp echo -c 10 -local 19-ffaa:0:1305,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];'
+            sudo -E docker exec coreAS1301 /bin/bash -c "scmp echo -c 10 -local 19-ffaa:0:1301,[127.0.0.1] -remote 19-ffaa:0:1303,[127.0.0.1]"
+            sudo -E docker exec infraAS1303 /bin/bash -c "grep -m 5 'Registered beacons' -r /var/log/scion/; scmp echo -c 10 -local 19-ffaa:0:1303,[127.0.0.1] -remote 19-ffaa:0:1301,[127.0.0.1];"
 
       - run:
           name: Start jackal servers
           command: |
             set -x
             sudo -E docker exec infraAS1303 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1303 /bin/bash -c 'until grep -q "19-ffaa:0:1303,\[127.0.0.1\]" ~/jackal/jackal.log; do sleep 1; done;'
+            sudo -E docker exec infraAS1303 /bin/bash -c 'until grep -q "19-ffaa:0:1303,\[127.0.0.1\]" ${JACKAL_DIR}/jackal.log; do sleep 1; done;'
             sudo -E docker exec infraAS1305 /bin/bash -c '${SC}/start_jackal.sh;'
-            sudo -E docker exec infraAS1305 /bin/bash -c 'until grep -q "19-ffaa:0:1305,\[127.0.0.1\]" ~/jackal/jackal.log; do sleep 1; done;'
+            sudo -E docker exec infraAS1305 /bin/bash -c 'until grep -q "19-ffaa:0:1305,\[127.0.0.1\]" ${JACKAL_DIR}/jackal.log; do sleep 1; done;'
 
       - run:
           name: Start XMPP client1

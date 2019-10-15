@@ -1,7 +1,7 @@
 #!/bin/bash
-cd ~/jackal
+cd $GOPATH/src/github.com/ortuman/jackal
 echo "19-ffaa:0:1303,[127.0.0.1] server1.xmpp." | sudo tee -a /etc/hosts
-go1.12.2 build github.com/ortuman/jackal
+export GO111MODULE=on && go1.12.10 build .
 sudo /etc/init.d/mysql start
 echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost' IDENTIFIED BY 'password';" | mysql -h localhost -u root -ppassword
 echo "CREATE DATABASE jackal;" | mysql -h localhost -u jackal -ppassword
@@ -15,5 +15,4 @@ else
     mysql -h localhost -D jackal -u jackal -ppassword < server2.sql
 fi
 
-cd ~/jackal
 ./jackal -c example.jackal.yml </dev/null &>/dev/null &

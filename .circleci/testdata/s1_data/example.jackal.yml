@@ -1,4 +1,4 @@
-# jackal default configuration file
+# jackal server1 integration test config file
 
 pid_path: jackal.pid
 
@@ -18,25 +18,12 @@ storage:
     database: jackal
     pool_size: 16
 
-#  type: pgsql
-#  pgsql:
-#    host: 127.0.0.1:5432
-#    user: jackal
-#    password: password
-#    database: jackal
-#    pool_size: 16
-
-#  cluster:
-#  name: node1
-#  port: 5010
-#  hosts: [127.0.0.1:5009, 127.0.0.1:5011]
-
 router:
   hosts:
     - name: server1.xmpp
       tls:
-        privkey_path: "/home/scion/jackal/ssl/server1.xmpp.key"
-        cert_path: "/home/scion/jackal/ssl/server1.xmpp.crt"
+        privkey_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.key"
+        cert_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.crt"
 
 modules:
   enabled:
@@ -55,9 +42,6 @@ modules:
 
   mod_offline:
     queue_size: 2500
-#    gateway:
-#      type: http
-#      pass: http://127.0.0.1:6666
 
   mod_registration:
     allow_registration: yes
@@ -83,7 +67,6 @@ c2s:
       bind_addr: 0.0.0.0
       port: 5222
       keep_alive: 120
-      # url_path: /xmpp/ws
 
     compression:
       level: default
@@ -106,8 +89,8 @@ s2s:
       keep_alive: 600
 
     scion_transport:
-      addr: localhost
+      addr: 19-ffaa:0:1303,[127.0.0.1]
       port: 52690
       keep_alive: 600
-      privkey_path: "/home/scion/jackal/ssl/server1.xmpp.key"
-      cert_path: "/home/scion/jackal/ssl/server1.xmpp.crt"
+      privkey_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.key"
+      cert_path: "/home/scion/go/src/github.com/ortuman/jackal/ssl/server1.xmpp.crt"

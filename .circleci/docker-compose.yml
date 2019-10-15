@@ -9,14 +9,6 @@ networks:
         - subnet: 172.31.0.0/16
 
 services:
-  zookeeper:
-    image: zookeeper:latest
-    container_name: zookeeper
-    networks:
-      as_net:
-        ipv4_address: 172.31.0.11
-    restart: always
-
   coreAS1301:
     build:
       context: .
@@ -24,10 +16,9 @@ services:
       args:
         - SCION_SRC=${SCION_SRC}
         - SC=${SC}
+        - JACKAL_DIR=${JACKAL_DIR}
     image: scionhost:tmp
     container_name: coreAS1301
-    depends_on:
-      - zookeeper
     working_dir: /home/scion/go/src/github.com/scionproto/scion
     networks:
       as_net:
@@ -48,7 +39,6 @@ services:
     image: scionhost:tmp
     container_name: infraAS1303
     depends_on:
-      - zookeeper
       - coreAS1301
     working_dir: /home/scion/go/src/github.com/scionproto/scion
     networks:
@@ -72,7 +62,6 @@ services:
     image: scionhost:tmp
     container_name: infraAS1305
     depends_on:
-      - zookeeper
       - coreAS1301
     working_dir: /home/scion/go/src/github.com/scionproto/scion
     networks:
