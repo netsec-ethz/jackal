@@ -4,7 +4,7 @@ An XMPP server written in Go.
 
 This repository is a fork of [ortuman/jackal](https://github.com/ortuman/jackal) making it available for SCION/QUIC. Refer to the original repository for general usage.
 
-## Running inside a SCIONLab Virtual Machine
+## Building jackal inside a SCIONLab Virtual Machine
 
 The following assumes that you have installed the VM as explained in [SCION Tutorials](https://netsec-ethz.github.io/scion-tutorials/virtual_machine_setup/dynamic_ip/). You should be able to ssh into your VM.
 
@@ -39,7 +39,7 @@ You can check if the project has built successfully by running the following com
 ```shell
 ./jackal -h
 ```
-## Run jackal
+## Running jackal
 In order to run jackal, you have to specify the configuration in .yml file. An example .yml file is provided in the repository as example.jackal.yml. You need to do the following steps before you can run the server with the configuration specified in the example.jackal.yml.
 
 ### SCION config
@@ -86,6 +86,7 @@ Your database is now ready to connect with jackal.
 ### Name resolution
 In the router/hosts section of the .yml file, replace the "name" entry with your server name. Make sure that this name resolves over DNS to a valid IP address where the server will be accepting client requests. Also, specify the paths to the TLS private key and certificate in the tls section, as well as in the scion_transport section.
 Finally, your hostname specified in the router/hosts section needs to resolve to a valid SCION addres on the specified [RAINS](https://github.com/netsec-ethz/rains) server. SCION address where the RAINS server is running needs to be specified in the config file at ~/go/src/github.com/scionproto/scion/gen/rains.cfg. Simply put the address of the RAINS server together with the port inside this file.
+NOTE: when building jackal, both SCION and IP address mapings from /etc/hosts file will be loaded.
 
 ## Connect to jackal
 Once you have the config file setup correctly, together with the MySQL database, valid certificates and the DNS and RAINS entries, you can run your jackal server. 
@@ -119,3 +120,19 @@ In the dockerfiles directory we provide a Dockerfile for assembling a docker ima
 -r rains_addr - IP or SCION address where the RAINS server is running (append the port to the address as well)
 
 Examples of XMPP clients that you can use to connect to jackal are [Psi](https://psi-im.org/) and [Profanity](http://www.profanity.im/). 
+
+## Notes for local testing
+To be used only when playing with jackal.
+
+### User registration
+Since some XMPP clients do not support in-band registration (e.g. Profanity), users need to be created manually. So far, the only way is to manually add them into the MySQL database created previously. For example:
+
+```shell
+mysql -h localhost -u jackal -p
+use jackal;
+insert into users (`username`, `password`, `last_presence`, `last_presence_at`, `updated_at`, `created_at`) values ('user1', 'asdf', '<presence from="user1@localhost/profanity" to="user1@localhost" type="unavailable"/>', '2019-04-19 18:42:58', '2019-04-19 18:42:58', '2019-04-19 18:42:58');
+
+```
+
+### Generating self-signed certificates
+If you need to create self-signed certificates, you might find this [post](https://stackoverflow.com/questions/21488845/how-can-i-generate-a-self-signed-certificate-with-subjectaltname-using-openssl) useful.
