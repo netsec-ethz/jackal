@@ -94,33 +94,6 @@ Once you have the config file setup correctly, together with the MySQL database,
 ./jackal -c example.jackal.yml
 ```
 
-## Running inside a docker container
-
-In the dockerfiles directory we provide a Dockerfile for assembling a docker image necessary to run jackal and SCION inside a docker container. We also run a MySQL database for storage of the data required to run the XMPP server. If you want to run this instance of jackal on your machine you can use docker.sh script with the following arguments:
-
-**Mandatory**
-
--g gen_path - provide the path to the gen folder describing the SCION AS configuration. This can be obtained from [SCIONLab](https://www.scionlab.org/)
-
--c jackal_config -  provide the path to the jackal configuration .yml file, an example of which is given in this repository. Notes:
-* storage type has to be mysql
-* privkey_path and cert_path need to be in the form of "/home/scion/jackal/<tls_path given to the -p flag>
-* the same is true for the scion_transport section privkey and cert path
-
--p tls_path - path to the directory containing private key and corresponding certificate for the server
-
--n subnet - docker subnet where the jackal will be listening for the incoming connections (subnet should be "host" if you want the container to share the host’s networking namespace)
-
--i ip_addr - IPv4 address of the container (needs to match the border router IP address from the gen folder)
-
--m mysql_pw - password to be used for the root and jackal user when running mysql commands
-
-**Optional**
-
--r rains_addr - IP or SCION address where the RAINS server is running (append the port to the address as well)
-
-Examples of XMPP clients that you can use to connect to jackal are [Psi](https://psi-im.org/) and [Profanity](http://www.profanity.im/). 
-
 ## Notes for local testing
 To be used only when playing with jackal.
 
