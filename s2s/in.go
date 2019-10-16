@@ -15,6 +15,7 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/module"
 	"github.com/ortuman/jackal/router"
+	"github.com/ortuman/jackal/runqueue"
 	"github.com/ortuman/jackal/session"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -38,17 +39,18 @@ type inStream struct {
 	sess          *session.Session
 	secured       uint32
 	authenticated uint32
-	actorCh       chan func()
 	acceptSCION   bool
+	runQueue      *runqueue.RunQueue
 }
 
 func newInStream(config *streamConfig, mods *module.Modules, router *router.Router) *inStream {
+	id := nextInID()
 	s := &inStream{
-		id:      nextInID(),
-		cfg:     config,
-		router:  router,
-		mods:    mods,
-		actorCh: make(chan func(), streamMailboxSize),
+		id:       id,
+		cfg:      config,
+		router:   router,
+		mods:     mods,
+		runQueue: runqueue.New(id),
 	}
 	if s.cfg.streamSCION {
 		s.acceptSCION = true
@@ -61,7 +63,6 @@ func newInStream(config *streamConfig, mods *module.Modules, router *router.Rout
 	if config.connectTimeout > 0 {
 		s.connectTm = time.AfterFunc(config.connectTimeout, s.connectTimeout)
 	}
-	go s.loop()
 	go s.doRead() // start reading transport...
 	return s
 }
@@ -75,41 +76,30 @@ func (s *inStream) Disconnect(err error) {
 		return
 	}
 	waitCh := make(chan struct{})
-	s.actorCh <- func() {
+	s.runQueue.Run(func() {
 		s.disconnect(err)
 		close(waitCh)
-	}
+	})
 	<-waitCh
 }
 
 func (s *inStream) connectTimeout() {
-	s.actorCh <- func() { s.disconnect(streamerror.ErrConnectionTimeout) }
-}
-
-// runs on its own goroutine
-func (s *inStream) loop() {
-	for {
-		f := <-s.actorCh
-		f()
-		if s.getState() == inDisconnected {
-			return
-		}
-	}
+	s.runQueue.Run(func() { s.disconnect(streamerror.ErrConnectionTimeout) })
 }
 
 // runs on its own goroutine
 func (s *inStream) doRead() {
 	if elem, sErr := s.sess.Receive(); sErr == nil {
-		s.actorCh <- func() {
+		s.runQueue.Run(func() {
 			s.readElement(elem)
-		}
+		})
 	} else {
-		s.actorCh <- func() {
+		s.runQueue.Run(func() {
 			if s.getState() == inDisconnected {
 				return // already disconnected...
 			}
 			s.handleSessionError(sErr)
-		}
+		})
 	}
 }
 
@@ -147,11 +137,11 @@ func (s *inStream) handleConnecting(elem xmpp.XElement) {
 		starttls.AppendElement(xmpp.NewElementName("required"))
 		features.AppendElement(starttls)
 		s.setState(inConnected)
-		s.sess.Open(features)
+		_ = s.sess.Open(features)
 		return
 	}
 
-	s.sess.Open(nil)
+	_ = s.sess.Open(nil)
 
 	if !s.isAuthenticated() {
 		// offer external authentication
@@ -213,7 +203,7 @@ func (s *inStream) processPresence(presence *xmpp.Presence) {
 		}
 		return
 	}
-	s.router.Route(presence)
+	_ = s.router.Route(presence)
 }
 
 func (s *inStream) processIQ(iq *xmpp.IQ) {
@@ -448,7 +438,7 @@ func (s *inStream) disconnect(err error) {
 
 func (s *inStream) disconnectWithStreamError(err *streamerror.Error) {
 	if s.getState() == inConnecting {
-		s.sess.Open(nil)
+		_ = s.sess.Open(nil)
 	}
 	s.writeElement(err.Element())
 	s.disconnectClosingSession(true)
@@ -456,14 +446,16 @@ func (s *inStream) disconnectWithStreamError(err *streamerror.Error) {
 
 func (s *inStream) disconnectClosingSession(closeSession bool) {
 	if closeSession {
-		s.sess.Close()
+		_ = s.sess.Close()
 	}
 	if s.cfg.onInDisconnect != nil {
 		s.cfg.onInDisconnect(s)
 	}
 
 	s.setState(inDisconnected)
-	s.cfg.transport.Close()
+	_ = s.cfg.transport.Close()
+
+	s.runQueue.Stop(nil) // stop processing messages
 }
 
 func (s *inStream) restartSession() {
