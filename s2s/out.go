@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/ortuman/jackal/runqueue"
+
 	streamerror "github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/router"
@@ -38,11 +40,11 @@ type outStream struct {
 	sess          *session.Session
 	secured       uint32
 	authenticated uint32
-	actorCh       chan func()
 	sendQueue     []xmpp.XElement
 	verified      chan xmpp.XElement
 	verifyCh      chan bool
 	discCh        chan *streamerror.Error
+	runQueue      *runqueue.RunQueue
 	onDisconnect  func(s stream.S2SOut)
 	isSCION       bool
 }
@@ -52,9 +54,9 @@ func newOutStream(router *router.Router, remoteDomain string) *outStream {
 	s := &outStream{
 		id:       id,
 		router:   router,
-		actorCh:  make(chan func(), streamMailboxSize),
 		verifyCh: make(chan bool, 1),
 		discCh:   make(chan *streamerror.Error, 1),
+		runQueue: runqueue.New(id),
 	}
 	isscionAddress, _ := rainsLookup(remoteDomain)
 	if isscionAddress {
@@ -73,14 +75,14 @@ func (s *outStream) SendElement(elem xmpp.XElement) {
 	if s.getState() == outDisconnected {
 		return
 	}
-	s.actorCh <- func() {
+	s.runQueue.Run(func() {
 		if s.getState() != outVerified {
 			// send element after verification has been completed
 			s.sendQueue = append(s.sendQueue, elem)
 			return
 		}
 		s.writeElement(elem)
-	}
+	})
 }
 
 func (s *outStream) Disconnect(err error) {
@@ -88,10 +90,10 @@ func (s *outStream) Disconnect(err error) {
 		return
 	}
 	waitCh := make(chan struct{})
-	s.actorCh <- func() {
+	s.runQueue.Run(func() {
 		s.disconnect(err)
 		close(waitCh)
-	}
+	})
 	<-waitCh
 }
 
@@ -107,47 +109,30 @@ func (s *outStream) start(cfg *streamConfig) error {
 	// start s2s out session
 	s.restartSession()
 
-	go s.loop()
 	go s.doRead() // start reading transport...
 
-	s.actorCh <- func() {
-		s.sess.Open(nil)
-	}
+	s.runQueue.Run(func() {
+		_ = s.sess.Open(nil)
+	})
 	return nil
 }
 
-func (s *outStream) verify() <-chan bool {
-	return s.verifyCh
-}
-
-func (s *outStream) done() <-chan *streamerror.Error {
-	return s.discCh
-}
-
-// runs on its own goroutine
-func (s *outStream) loop() {
-	for {
-		f := <-s.actorCh
-		f()
-		if s.getState() == outDisconnected {
-			return
-		}
-	}
-}
+func (s *outStream) verify() <-chan bool             { return s.verifyCh }
+func (s *outStream) done() <-chan *streamerror.Error { return s.discCh }
 
 // runs on its own goroutine
 func (s *outStream) doRead() {
 	if elem, sErr := s.sess.Receive(); sErr == nil {
-		s.actorCh <- func() {
+		s.runQueue.Run(func() {
 			s.readElement(elem)
-		}
+		})
 	} else {
-		s.actorCh <- func() {
+		s.runQueue.Run(func() {
 			if s.getState() == outDisconnected {
 				return // already disconnected...
 			}
 			s.handleSessionError(sErr)
-		}
+		})
 	}
 }
 
@@ -241,7 +226,7 @@ func (s *outStream) handleSecuring(elem xmpp.XElement) {
 
 	atomic.StoreUint32(&s.secured, 1)
 	s.restartSession()
-	s.sess.Open(nil)
+	_ = s.sess.Open(nil)
 }
 
 func (s *outStream) handleAuthenticating(elem xmpp.XElement) {
@@ -253,7 +238,7 @@ func (s *outStream) handleAuthenticating(elem xmpp.XElement) {
 	case "success":
 		atomic.StoreUint32(&s.authenticated, 1)
 		s.restartSession()
-		s.sess.Open(nil)
+		_ = s.sess.Open(nil)
 
 	case "failure":
 		s.disconnectWithStreamError(streamerror.ErrRemoteConnectionFailed)
@@ -359,14 +344,16 @@ func (s *outStream) disconnectWithStreamError(err *streamerror.Error) {
 
 func (s *outStream) disconnectClosingSession(closeSession bool) {
 	if closeSession {
-		s.sess.Close()
+		_ = s.sess.Close()
 	}
 	if s.cfg.onOutDisconnect != nil {
 		s.cfg.onOutDisconnect(s)
 	}
 
 	s.setState(outDisconnected)
-	s.cfg.transport.Close()
+	_ = s.cfg.transport.Close()
+
+	s.runQueue.Stop(nil) // stop processing messages
 
 	close(s.discCh)
 }

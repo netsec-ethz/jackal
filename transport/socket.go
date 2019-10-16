@@ -69,7 +69,6 @@ func (s *socketTransport) Read(p []byte) (n int, err error) {
 }
 
 func (s *socketTransport) Write(p []byte) (n int, err error) {
-	defer s.bw.Flush()
 	return s.bw.Write(p)
 }
 
@@ -85,9 +84,13 @@ func (s *socketTransport) Type() Type {
 }
 
 func (s *socketTransport) WriteString(str string) (int, error) {
-	defer s.bw.Flush()
 	n, err := io.Copy(s.bw, strings.NewReader(str))
 	return int(n), err
+}
+
+// Flush writes any buffered data to the underlying io.Writer.
+func (s *socketTransport) Flush() error {
+	return s.bw.Flush()
 }
 
 func (s *socketTransport) StartTLS(cfg *tls.Config, asClient bool) {

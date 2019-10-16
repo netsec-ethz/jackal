@@ -7,8 +7,9 @@ package cluster
 
 import (
 	"bytes"
-	"encoding/gob"
 	"sync"
+
+	"github.com/ortuman/jackal/runqueue"
 
 	"github.com/google/uuid"
 	"github.com/ortuman/jackal/log"
@@ -61,7 +62,7 @@ type Cluster struct {
 	memberList memberList
 	membersMu  sync.RWMutex
 	members    map[string]*Node
-	actorCh    chan func()
+	runQueue   *runqueue.RunQueue
 }
 
 // New returns an initialized c2s instance
@@ -74,14 +75,13 @@ func New(config *Config, delegate Delegate) (*Cluster, error) {
 		delegate: delegate,
 		buf:      bytes.NewBuffer(nil),
 		members:  make(map[string]*Node),
-		actorCh:  make(chan func(), clusterMailboxSize),
+		runQueue: runqueue.New("cluster"),
 	}
 	ml, err := createMemberList(config.Name, config.BindPort, c)
 	if err != nil {
 		return nil, err
 	}
 	c.memberList = ml
-	go c.loop()
 	return c, nil
 }
 
@@ -113,37 +113,30 @@ func (c *Cluster) C2SStream(jid *jid.JID, presence *xmpp.Presence, context map[s
 
 // SendMessageTo sends a cluster message to a concrete node.
 func (c *Cluster) SendMessageTo(node string, msg *Message) {
-	c.actorCh <- func() {
+	c.runQueue.Run(func() {
 		if err := c.send(msg, node); err != nil {
 			log.Error(err)
 			return
 		}
-	}
+	})
 }
 
 // BroadcastMessage broadcasts a cluster message to all nodes.
 func (c *Cluster) BroadcastMessage(msg *Message) {
-	c.actorCh <- func() {
+	c.runQueue.Run(func() {
 		if err := c.broadcast(msg); err != nil {
 			log.Error(err)
 		}
-	}
+	})
 }
 
 // Shutdown shuts down cluster sub system.
 func (c *Cluster) Shutdown() error {
 	errCh := make(chan error, 1)
-	c.actorCh <- func() {
+	c.runQueue.Stop(func() {
 		errCh <- c.memberList.Shutdown()
-		close(c.actorCh)
-	}
+	})
 	return <-errCh
-}
-
-func (c *Cluster) loop() {
-	for f := range c.actorCh {
-		f()
-	}
 }
 
 func (c *Cluster) send(msg *Message, toNode string) error {
@@ -152,8 +145,10 @@ func (c *Cluster) send(msg *Message, toNode string) error {
 
 func (c *Cluster) broadcast(msg *Message) error {
 	msgBytes := c.encodeMessage(msg)
+
 	c.membersMu.RLock()
 	defer c.membersMu.RUnlock()
+
 	for _, node := range c.members {
 		if node.Name == c.LocalNode() {
 			continue
@@ -212,8 +207,8 @@ func (c *Cluster) handleNotifyMsg(msg []byte) {
 		return
 	}
 	var m Message
-	dec := gob.NewDecoder(bytes.NewReader(msg))
-	if err := m.FromGob(dec); err != nil {
+	buf := bytes.NewBuffer(msg)
+	if err := m.FromBytes(buf); err != nil {
 		log.Error(err)
 		return
 	}
@@ -224,8 +219,8 @@ func (c *Cluster) handleNotifyMsg(msg []byte) {
 
 func (c *Cluster) encodeMessage(msg *Message) []byte {
 	defer c.buf.Reset()
-	enc := gob.NewEncoder(c.buf)
-	msg.ToGob(enc)
+
+	_ = msg.ToBytes(c.buf)
 	msgBytes := make([]byte, c.buf.Len(), c.buf.Len())
 	copy(msgBytes, c.buf.Bytes())
 	return msgBytes
