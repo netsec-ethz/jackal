@@ -24,6 +24,7 @@ const (
 	defaultDialTimeout        = time.Duration(15) * time.Second
 	defaultConnectTimeout     = time.Duration(5) * time.Second
 	defaultMaxStanzaSize      = 131072
+	defaultDispatcherPath     = "/run/shm/dispatcher/default.sock"
 )
 
 // TransportConfig represents s2s transport configuration.
@@ -41,19 +42,21 @@ type transportConfigProxy struct {
 
 // TransportConfig represents s2s transport configuration.
 type ScionConfig struct {
-	Address   string
-	Port      int
-	KeepAlive time.Duration
-	Key       string
-	Cert      string
+	Address    string
+	Port       int
+	Dispatcher string
+	KeepAlive  time.Duration
+	Key        string
+	Cert       string
 }
 
 type scionConfigProxy struct {
-	Address   string `yaml:"addr"`
-	Port      int    `yaml:"port"`
-	KeepAlive int    `yaml:"keep_alive"`
-	Key       string `yaml:"privkey_path"`
-	Cert      string `yaml:"cert_path"`
+	Address    string `yaml:"addr"`
+	Port       int    `yaml:"port"`
+	Dispatcher string `yaml:"dispatcher_path"`
+	KeepAlive  int    `yaml:"keep_alive"`
+	Key        string `yaml:"privkey_path"`
+	Cert       string `yaml:"cert_path"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -101,6 +104,10 @@ func (c *ScionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	c.Cert = p.Cert
 	if len(c.Cert) == 0 {
 		return fmt.Errorf("s2s: specify certificate path")
+	}
+	c.Dispatcher = p.Dispatcher
+	if len(c.Dispatcher) == 0 {
+		c.Dispatcher = defaultDispatcherPath
 	}
 	return nil
 }

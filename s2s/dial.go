@@ -52,7 +52,7 @@ func (d *dialer) dial(localDomain, remoteDomain string) (*streamConfig, error) {
 		}
 
 		sciondPath := sciond.GetDefaultSCIONDPath(nil)
-		dispatcherPath := "/run/shm/dispatcher/default.sock"
+		dispatcherPath := d.cfg.Scion.Dispatcher
 		snet.Init(local.IA, sciondPath, reliable.NewDispatcherService(dispatcherPath))
 		quicConfig := &quic.Config{
 			KeepAlive: true,
