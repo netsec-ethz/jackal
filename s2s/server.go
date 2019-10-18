@@ -102,7 +102,7 @@ func (s *server) listenScionConn(address *snet.Addr) error {
 			}
 			isScion := true
 			go s.startInStream(transport.NewQUICSocketTransport(conn, accStream,
-				s.cfg.Scion.KeepAlive, true), isScion)
+				s.cfg.Scion.KeepAlive), isScion)
 			continue
 		}
 	}

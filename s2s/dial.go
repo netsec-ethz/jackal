@@ -65,7 +65,7 @@ func (d *dialer) dialQUIC(remote *snet.Addr, localDomain, remoteDomain string) (
 	}
 
 	tr := transport.NewQUICSocketTransport(sess, biStream,
-		d.cfg.Transport.KeepAlive, true)
+		d.cfg.Transport.KeepAlive)
 	return &streamConfig{
 		keyGen:        &keyGen{secret: d.cfg.DialbackSecret},
 		localDomain:   localDomain,
