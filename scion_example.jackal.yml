@@ -1,4 +1,4 @@
-# jackal default configuration file
+# jackal default configuration file including SCION
 
 pid_path: jackal.pid
 
@@ -18,25 +18,12 @@ storage:
     database: jackal
     pool_size: 16
 
-#  type: pgsql
-#  pgsql:
-#    host: 127.0.0.1:5432
-#    user: jackal
-#    password: password
-#    database: jackal
-#    pool_size: 16
-
-#  cluster:
-#  name: node1
-#  port: 5010
-#  hosts: [127.0.0.1:5009, 127.0.0.1:5011]
-
 router:
   hosts:
-    - name: localhost
+    - name: server1.xmpp
       tls:
-        privkey_path: ""
-        cert_path: ""
+        privkey_path: "/home/ubuntu/jackal/ssl/server1.xmpp.key"
+        cert_path: "/home/ubuntu/jackal/ssl/server1.xmpp.crt"
 
 modules:
   enabled:
@@ -55,9 +42,6 @@ modules:
 
   mod_offline:
     queue_size: 2500
-#    gateway:
-#      type: http
-#      pass: http://127.0.0.1:6666
 
   mod_registration:
     allow_registration: yes
@@ -95,12 +79,19 @@ c2s:
       - scram_sha_256
       - scram_sha_512
 
-#s2s:
-#    dial_timeout: 15
-#    dialback_secret: s3cr3tf0rd14lb4ck
-#    max_stanza_size: 131072
-#
-#    transport:
-#      bind_addr: 0.0.0.0
-#      port: 5269
-#      keep_alive: 600
+s2s:
+    dial_timeout: 15
+    dialback_secret: s3cr3tf0rd14lb4ck
+    max_stanza_size: 131072
+
+    transport:
+      bind_addr: 0.0.0.0
+      port: 5269
+      keep_alive: 600
+
+    scion_transport:
+      addr: <insert_your_SCION_addr>
+      port: 52690
+      keep_alive: 600
+      privkey_path: "/home/ubuntu/jackal/ssl/server1.xmpp.key"
+      cert_path: "/home/ubuntu/jackal/ssl/server1.xmpp.crt"
