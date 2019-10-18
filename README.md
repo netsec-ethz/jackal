@@ -4,37 +4,11 @@ An XMPP server written in Go.
 
 This repository is a fork of [ortuman/jackal](https://github.com/ortuman/jackal) making it available for SCION/QUIC. Refer to the original repository for general usage.
 
-## Building jackal inside a SCIONLab Virtual Machine
-
-The following assumes that you have installed the VM as explained in [SCION Tutorials](https://netsec-ethz.github.io/scion-tutorials/virtual_machine_setup/dynamic_ip/). You should be able to ssh into your VM.
-
-Install Go 1.12:
+If you have go1.12 installed (not supporting go1.11 at the moment), you can build jackal using Makefile.
 ```shell
-cd ~
-curl -O https://dl.google.com/go/go1.12.10.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.12.10.linux-amd64.tar.gz
+make build
 ```
 
-Update Go Paths:
-```shell
-echo 'export GOPATH="$HOME/go"' >> ~/.profile
-echo 'export PATH="$HOME/.local/bin:$GOPATH/bin:/usr/local/go/bin:$PATH"' >> ~/.profile
-source ~/.profile
-mkdir -p "$GOPATH"
-```
-
-Clone this repository:
-```shell
-mkdir -p $GOPATH/src/github.com/ortuman
-cd $GOPATH/src/github.com/ortuman
-git clone https://github.com/mmalesev/jackal
-cd jackal
-```
-
-You should be able to build the project.
-```shell
-export GO111MODULE=on && go build .
-```
 You can check if the project has built successfully by running the following command. You should see jackal logo, together with the usage instructions.
 ```shell
 ./jackal -h
