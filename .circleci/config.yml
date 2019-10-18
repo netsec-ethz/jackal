@@ -32,7 +32,7 @@ jobs:
       - checkout
 
       - setup_remote_docker:
-         docker_layer_caching: true
+         docker_layer_caching: false #not available in the free plan
 
       # Start integration tests
       - run:
