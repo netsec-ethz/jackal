@@ -18,6 +18,22 @@
 #
 version: 2
 jobs:
+  unit_tests:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: /go/src/github.com/ortuman/jackal
+    environment:
+      GO111MODULE: "on"
+
+    steps:
+      - checkout
+      - run:
+          name: Build jackal
+          command: |
+            set -x
+            go build 
+            go test ./...
+
   integration:
     docker:
       - image: circleci/python:3.6.1
@@ -102,4 +118,5 @@ workflows:
   version: 2
   tests:
     jobs:
+      - unit_tests
       - integration
