@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/transport/compress"
 )
 
@@ -68,9 +67,6 @@ func (s *socketTransport) Read(p []byte) (n int, err error) {
 		s.conn.SetReadDeadline(time.Now().Add(s.keepAlive))
 	}
 	n, err = s.br.Read(p)
-	if err != nil {
-		log.Infof("Error reading the byte stream")
-	}
 	return n, err
 }
 
@@ -141,9 +137,6 @@ func (s *socketTransport) PeerCertificates() []*x509.Certificate {
 
 func (s *quicsocketTransport) Read(p []byte) (n int, err error) {
 	n, err = s.br.Read(p)
-	if err != nil {
-		log.Infof("Error reading the byte stream")
-	}
 	return n, err
 }
 
