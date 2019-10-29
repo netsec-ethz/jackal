@@ -74,7 +74,6 @@ type Application struct {
 
 // New returns a runnable application given an output and a command line arguments array.
 func New(output io.Writer, args []string) *Application {
-
 	return &Application{
 		output:           output,
 		args:             args,
