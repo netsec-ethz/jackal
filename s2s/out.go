@@ -46,7 +46,6 @@ type outStream struct {
 	discCh        chan *streamerror.Error
 	runQueue      *runqueue.RunQueue
 	onDisconnect  func(s stream.S2SOut)
-	isSCION       bool
 }
 
 func newOutStream(router *router.Router, remoteDomain string) *outStream {
@@ -60,9 +59,8 @@ func newOutStream(router *router.Router, remoteDomain string) *outStream {
 	}
 	isscionAddress, _ := rainsLookup(remoteDomain)
 	if isscionAddress {
-		s.isSCION = true
-		atomic.StoreUint32(&s.secured, 1)
-		atomic.StoreUint32(&s.authenticated, 1)
+		s.secured = 1
+		s.authenticated = 1
 	}
 	return s
 }
@@ -162,7 +160,6 @@ func (s *outStream) handleConnected(elem xmpp.XElement) {
 		s.disconnectWithStreamError(streamerror.ErrUnsupportedStanzaType)
 		return
 	}
-
 	if !s.isSecured() {
 		if elem.Elements().ChildrenNamespace("starttls", tlsNamespace) == nil {
 			// unsecured channels not supported
