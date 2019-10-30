@@ -57,6 +57,7 @@ func (s *server) shutdown(ctx context.Context) error {
 			return err
 		}
 		log.Infof("%s: closed %d out connection(s)", s.cfg.ID, c)
+
 		c, err = closeConnections(ctx, &s.inConns)
 		if err != nil {
 			return err

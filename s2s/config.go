@@ -184,5 +184,4 @@ type streamConfig struct {
 	dialer          *dialer
 	onInDisconnect  func(s stream.S2SIn)
 	onOutDisconnect func(s stream.S2SOut)
-	streamSCION     bool
 }

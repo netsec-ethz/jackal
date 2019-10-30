@@ -72,7 +72,6 @@ func (d *dialer) dialQUIC(remote *snet.Addr, localDomain, remoteDomain string) (
 		remoteDomain:  remoteDomain,
 		transport:     tr,
 		maxStanzaSize: d.cfg.MaxStanzaSize,
-		streamSCION:   true,
 	}, nil
 }
 
