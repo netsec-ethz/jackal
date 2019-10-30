@@ -92,6 +92,8 @@ s2s:
     scion_transport:
       addr: <insert_your_SCION_addr>
       port: 52690
+      dispatcher_path: /run/shm/dispatcher/default.sock  # or empty for default
+      sciond_path: /run/shm/sciond/default.sock  # or empty for default
       keep_alive: 600
       privkey_path: "/home/ubuntu/jackal/ssl/server1.xmpp.key"
       cert_path: "/home/ubuntu/jackal/ssl/server1.xmpp.crt"
