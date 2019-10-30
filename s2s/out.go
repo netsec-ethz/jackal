@@ -48,7 +48,7 @@ type outStream struct {
 	onDisconnect  func(s stream.S2SOut)
 }
 
-func newOutStream(router *router.Router, remoteDomain string) *outStream {
+func newOutStream(router *router.Router, alreadySecuredAndAuthd bool) *outStream {
 	id := nextOutID()
 	s := &outStream{
 		id:       id,
@@ -57,8 +57,7 @@ func newOutStream(router *router.Router, remoteDomain string) *outStream {
 		discCh:   make(chan *streamerror.Error, 1),
 		runQueue: runqueue.New(id),
 	}
-	isscionAddress, _ := rainsLookup(remoteDomain)
-	if isscionAddress {
+	if alreadySecuredAndAuthd {
 		s.secured = 1
 		s.authenticated = 1
 	}

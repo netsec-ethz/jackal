@@ -336,7 +336,8 @@ func (s *inStream) authorizeDialbackKey(elem xmpp.XElement) {
 	dbVerify.SetText(elem.Text())
 	outCfg.dbVerify = dbVerify
 
-	outStm := newOutStream(s.router, elem.From())
+	isScionAddress, _ := rainsLookup(elem.From())
+	outStm := newOutStream(s.router, isScionAddress)
 	_ = outStm.start(outCfg)
 
 	// wait remote server verification
