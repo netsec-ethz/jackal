@@ -27,7 +27,7 @@ func TestOutStream_Start(t *testing.T) {
 	defer shutdown()
 
 	cfg, _ := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r)
+	stm := newOutStream(r, false)
 	defer stm.Disconnect(nil)
 
 	// wrong verification name...
@@ -46,7 +46,7 @@ func TestOutStream_Disconnect(t *testing.T) {
 	defer shutdown()
 
 	cfg, conn := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r)
+	stm := newOutStream(r, false)
 	stm.start(cfg)
 	stm.Disconnect(nil)
 	require.True(t, conn.waitClose())
@@ -323,7 +323,7 @@ func tUtilOutStreamOpen(conn *fakeSocketConn) {
 }
 
 func tUtilOutStreamInitWithConfig(t *testing.T, r *router.Router, cfg *streamConfig, conn *fakeSocketConn) *outStream {
-	stm := newOutStream(r)
+	stm := newOutStream(r, false)
 	stm.start(cfg)
 
 	elem := conn.outboundRead()
@@ -335,7 +335,7 @@ func tUtilOutStreamInitWithConfig(t *testing.T, r *router.Router, cfg *streamCon
 
 func tUtilOutStreamInit(t *testing.T, r *router.Router) (*outStream, *fakeSocketConn) {
 	cfg, conn := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r)
+	stm := newOutStream(r, false)
 	stm.start(cfg)
 
 	elem := conn.outboundRead()

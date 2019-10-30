@@ -87,7 +87,8 @@ func (s *server) listenConn(address string) error {
 
 func (s *server) getOrDial(localDomain, remoteDomain string) (stream.S2SOut, error) {
 	domainPair := localDomain + ":" + remoteDomain
-	stm, loaded := s.outConns.LoadOrStore(domainPair, newOutStream(s.router))
+	isScionAddress, _ := rainsLookup(remoteDomain)
+	stm, loaded := s.outConns.LoadOrStore(domainPair, newOutStream(s.router, isScionAddress))
 	if !loaded {
 		outCfg, err := s.dialer.dial(localDomain, remoteDomain)
 		if err != nil {
@@ -117,7 +118,7 @@ func (s *server) startInStream(tr transport.Transport) {
 		maxStanzaSize:  s.cfg.MaxStanzaSize,
 		dialer:         s.dialer,
 		onInDisconnect: s.unregisterInStream,
-	}, s.mods, s.router)
+	}, s.mods, s.router, false)
 	s.registerInStream(stm)
 }
 
