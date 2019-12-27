@@ -13,7 +13,7 @@ require (
 	github.com/britram/borat v0.0.0-20181011130314-f891bcfcfb9b // indirect
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/dchest/cmac v0.0.0-20150527144652-62ff55a1048c // indirect
-	github.com/dgraph-io/badger v0.0.0-20190504012207-d2ebeac29495
+	github.com/dgraph-io/badger v1.6.0
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/go-sql-driver/mysql v0.0.0-20190423112050-d0a548181995
@@ -47,8 +47,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0 // indirect
 	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734
-	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
-	golang.org/x/sys v0.0.0-20190502175342-a43fa875dd82 // indirect
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/text v0.3.2
 	google.golang.org/appengine v1.5.0 // indirect
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1 // indirect
