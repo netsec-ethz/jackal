@@ -98,6 +98,7 @@ func (d *dialer) dialTCP(localDomain, remoteDomain string) (*streamConfig, error
 	tr := transport.NewSocketTransport(conn, d.cfg.Transport.KeepAlive)
 	return &streamConfig{
 		keyGen:        &keyGen{secret: d.cfg.DialbackSecret},
+		timeout:       d.cfg.Timeout,
 		localDomain:   localDomain,
 		remoteDomain:  remoteDomain,
 		transport:     tr,
