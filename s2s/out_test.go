@@ -24,8 +24,7 @@ import (
 )
 
 func TestOutStream_Start(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	cfg, _ := tUtilOutStreamDefaultConfig()
 	stm := newOutStream(r, false)
@@ -43,8 +42,7 @@ func TestOutStream_Start(t *testing.T) {
 }
 
 func TestOutStream_Disconnect(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	cfg, conn := tUtilOutStreamDefaultConfig()
 	stm := newOutStream(r, false)
@@ -56,8 +54,7 @@ func TestOutStream_Disconnect(t *testing.T) {
 }
 
 func TestOutStream_BadConnect(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	_, conn := tUtilOutStreamInit(t, r)
 
@@ -69,8 +66,7 @@ func TestOutStream_BadConnect(t *testing.T) {
 }
 
 func TestOutStream_Features(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	_, conn := tUtilOutStreamInit(t, r)
 	tUtilOutStreamOpen(conn)
@@ -109,8 +105,7 @@ func TestOutStream_Features(t *testing.T) {
 }
 
 func TestOutStream_DBVerify(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	cfg, conn := tUtilOutStreamDefaultConfig()
 	dbVerify := xmpp.NewElementName("db:verify")
@@ -161,8 +156,7 @@ func TestOutStream_DBVerify(t *testing.T) {
 }
 
 func TestOutStream_StartTLS(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	// unsupported stanza...
 	_, conn := tUtilOutStreamInit(t, r)
@@ -197,8 +191,7 @@ func TestOutStream_StartTLS(t *testing.T) {
 }
 
 func TestOutStream_Authenticate(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	// unsupported stanza...
 	stm, conn := tUtilOutStreamInit(t, r)
@@ -265,8 +258,7 @@ func TestOutStream_Authenticate(t *testing.T) {
 }
 
 func TestOutStream_Dialback(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	r := setupTest(jackaDomain)
 
 	// unsupported stanza...
 	stm, conn := tUtilOutStreamInit(t, r)
