@@ -11,10 +11,8 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/scion-apps/lib/scionutil"
-	"github.com/ortuman/jackal/module"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/transport"
-	"github.com/ortuman/jackal/xmpp"
 	"github.com/pkg/errors"
 	"github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/sock/reliable"
@@ -188,18 +186,23 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-type streamConfig struct {
-	modConfig       *module.Config
-	keyGen          *keyGen
-	localDomain     string
-	remoteDomain    string
-	connectTimeout  time.Duration
-	timeout         time.Duration
-	tls             *tls.Config
-	transport       transport.Transport
-	maxStanzaSize   int
-	dbVerify        xmpp.XElement
-	dialer          *dialer
-	onInDisconnect  func(s stream.S2SIn)
-	onOutDisconnect func(s stream.S2SOut)
+type inConfig struct {
+	keyGen         *keyGen
+	connectTimeout time.Duration
+	timeout        time.Duration
+	tls            *tls.Config
+	transport      transport.Transport
+	maxStanzaSize  int
+	onDisconnect   func(s stream.S2SIn)
+}
+
+type outConfig struct {
+	keyGen        *keyGen
+	localDomain   string
+	remoteDomain  string
+	timeout       time.Duration
+	keepAlive     time.Duration
+	tls           *tls.Config
+	maxStanzaSize int
+	scion *ScionConfig
 }

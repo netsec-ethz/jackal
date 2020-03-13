@@ -78,13 +78,13 @@ func (s *scionServer) listenScionConn(address *snet.Addr) error {
 }
 
 func (s *scionServer) startInStream(tr transport.Transport) {
-	stm := newInStream(&streamConfig{
+	stm := newInStream(&inConfig{
 		keyGen:         &keyGen{s.cfg.DialbackSecret},
 		transport:      tr,
 		connectTimeout: s.cfg.ConnectTimeout,
+		timeout:        s.cfg.Timeout,
 		maxStanzaSize:  s.cfg.MaxStanzaSize,
-		dialer:         s.dialer,
-		onInDisconnect: s.unregisterInStream,
-	}, s.mods, s.router, true)
+		onDisconnect: s.unregisterInStream,
+	}, s.mods, s.newOutFn, s.router, true)
 	s.registerInStream(stm)
 }

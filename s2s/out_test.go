@@ -7,46 +7,23 @@ package s2s
 
 import (
 	"context"
+	"net"
 	"sync/atomic"
 	"testing"
-	"time"
 
-	"github.com/ortuman/jackal/module"
-	"github.com/ortuman/jackal/module/offline"
-	"github.com/ortuman/jackal/module/xep0077"
-	"github.com/ortuman/jackal/module/xep0092"
-	"github.com/ortuman/jackal/module/xep0199"
-	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/transport"
+	"github.com/ortuman/jackal/router/host"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
 )
 
-func TestOutStream_Start(t *testing.T) {
-	r := setupTest(jackaDomain)
-
-	cfg, _ := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r, false)
-	defer stm.Disconnect(context.Background(), nil)
-
-	// wrong verification name...
-	cfg.dbVerify = xmpp.NewElementName("foo")
-	err := stm.start(context.Background(), cfg)
-	require.NotNil(t, err)
-
-	cfg.dbVerify = nil
-	_ = stm.start(context.Background(), cfg)
-	err = stm.start(context.Background(), cfg)
-	require.NotNil(t, err) // already started
-}
-
 func TestOutStream_Disconnect(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
-	cfg, conn := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r, false)
-	_ = stm.start(context.Background(), cfg)
+	cfg, dialer, conn := tUtilOutStreamDefaultConfig()
+	stm := newOutStream(cfg, h, dialer, false)
+	_ = stm.start(context.Background())
+
 	stm.Disconnect(context.Background(), nil)
 	require.True(t, conn.waitClose())
 
@@ -54,9 +31,9 @@ func TestOutStream_Disconnect(t *testing.T) {
 }
 
 func TestOutStream_BadConnect(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
-	_, conn := tUtilOutStreamInit(t, r)
+	_, conn := tUtilOutStreamInit(t, h)
 
 	// invalid namespace
 	_, _ = conn.inboundWriteString(`
@@ -66,9 +43,9 @@ func TestOutStream_BadConnect(t *testing.T) {
 }
 
 func TestOutStream_Features(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
-	_, conn := tUtilOutStreamInit(t, r)
+	_, conn := tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 
 	// invalid stanza type...
@@ -78,7 +55,7 @@ func TestOutStream_Features(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// invalid namespace...
-	_, conn = tUtilOutStreamInit(t, r)
+	_, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 
 	_, _ = conn.inboundWriteString(`
@@ -87,7 +64,7 @@ func TestOutStream_Features(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// invalid version...
-	_, conn = tUtilOutStreamInit(t, r)
+	_, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 
 	_, _ = conn.inboundWriteString(`
@@ -96,7 +73,7 @@ func TestOutStream_Features(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// starttls not available...
-	_, conn = tUtilOutStreamInit(t, r)
+	_, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	_, _ = conn.inboundWriteString(`
 <stream:features xmlns:stream="http://etherx.jabber.org/streams" version="1.0"/>
@@ -104,62 +81,11 @@ func TestOutStream_Features(t *testing.T) {
 	require.True(t, conn.waitClose())
 }
 
-func TestOutStream_DBVerify(t *testing.T) {
-	r := setupTest(jackaDomain)
-
-	cfg, conn := tUtilOutStreamDefaultConfig()
-	dbVerify := xmpp.NewElementName("db:verify")
-	key := uuid.New()
-	dbVerify.SetID("abcde")
-	dbVerify.SetFrom("jackal.im")
-	dbVerify.SetTo("jabber.org")
-	dbVerify.SetText(key)
-	cfg.dbVerify = dbVerify
-
-	stm := tUtilOutStreamInitWithConfig(t, r, cfg, conn)
-	atomic.StoreUint32(&stm.secured, 1)
-	tUtilOutStreamOpen(conn)
-
-	_, _ = conn.inboundWriteString(securedFeatures)
-	elem := conn.outboundRead()
-	require.Equal(t, "db:verify", elem.Name())
-	require.Equal(t, key, elem.Text())
-
-	// unsupported stanza...
-	_, _ = conn.inboundWriteString(`
-<dbverify/>
-`)
-	select {
-	case sErr := <-stm.done():
-		require.Equal(t, "unsupported-stanza-type", sErr.Error())
-	case <-time.After(time.Second):
-		require.Fail(t, "expecting session error")
-	}
-
-	cfg, conn = tUtilOutStreamDefaultConfig()
-	cfg.dbVerify = dbVerify
-	stm = tUtilOutStreamInitWithConfig(t, r, cfg, conn)
-	atomic.StoreUint32(&stm.secured, 1)
-	tUtilOutStreamOpen(conn)
-	_, _ = conn.inboundWriteString(securedFeatures)
-	_ = conn.outboundRead()
-
-	_, _ = conn.inboundWriteString(`
-<db:verify id='abcde' from='jabber.org' to='jackal.im' type='valid'/>
-`)
-	select {
-	case ok := <-stm.verify():
-		require.True(t, ok)
-	case <-time.After(time.Second):
-		require.Fail(t, "expecting dialback valid verification")
-	}
-}
-
 func TestOutStream_StartTLS(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
 	// unsupported stanza...
-	_, conn := tUtilOutStreamInit(t, r)
+	_, conn := tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	_, _ = conn.inboundWriteString(unsecuredFeatures)
 	elem := conn.outboundRead()
@@ -170,7 +96,7 @@ func TestOutStream_StartTLS(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// invalid namespace
-	_, conn = tUtilOutStreamInit(t, r)
+	_, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	_, _ = conn.inboundWriteString(unsecuredFeatures)
 	_ = conn.outboundRead()
@@ -179,7 +105,7 @@ func TestOutStream_StartTLS(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// valid
-	stm, conn := tUtilOutStreamInit(t, r)
+	stm, conn := tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	_, _ = conn.inboundWriteString(unsecuredFeatures)
 	_ = conn.outboundRead()
@@ -191,10 +117,10 @@ func TestOutStream_StartTLS(t *testing.T) {
 }
 
 func TestOutStream_Authenticate(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
 	// unsupported stanza...
-	stm, conn := tUtilOutStreamInit(t, r)
+	stm, conn := tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeaturesWithExternal)
@@ -209,7 +135,7 @@ func TestOutStream_Authenticate(t *testing.T) {
 `)
 	require.True(t, conn.waitClose())
 
-	stm, conn = tUtilOutStreamInit(t, r)
+	stm, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeaturesWithExternal)
@@ -220,7 +146,7 @@ func TestOutStream_Authenticate(t *testing.T) {
 `)
 	require.True(t, conn.waitClose())
 
-	stm, conn = tUtilOutStreamInit(t, r)
+	stm, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeaturesWithExternal)
@@ -231,7 +157,7 @@ func TestOutStream_Authenticate(t *testing.T) {
 `)
 	require.True(t, conn.waitClose())
 
-	stm, conn = tUtilOutStreamInit(t, r)
+	stm, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeaturesWithExternal)
@@ -258,10 +184,10 @@ func TestOutStream_Authenticate(t *testing.T) {
 }
 
 func TestOutStream_Dialback(t *testing.T) {
-	r := setupTest(jackaDomain)
+	h := setupTestHosts(jackaDomain)
 
 	// unsupported stanza...
-	stm, conn := tUtilOutStreamInit(t, r)
+	stm, conn := tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeatures)
@@ -276,7 +202,7 @@ func TestOutStream_Dialback(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// failed
-	stm, conn = tUtilOutStreamInit(t, r)
+	stm, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 	_, _ = conn.inboundWriteString(securedFeatures)
@@ -288,7 +214,7 @@ func TestOutStream_Dialback(t *testing.T) {
 	require.True(t, conn.waitClose())
 
 	// successful
-	stm, conn = tUtilOutStreamInit(t, r)
+	stm, conn = tUtilOutStreamInit(t, h)
 	tUtilOutStreamOpen(conn)
 	atomic.StoreUint32(&stm.secured, 1)
 
@@ -317,9 +243,13 @@ func tUtilOutStreamOpen(conn *fakeSocketConn) {
 `)
 }
 
-func tUtilOutStreamInitWithConfig(t *testing.T, r *router.Router, cfg *streamConfig, conn *fakeSocketConn) *outStream {
-	stm := newOutStream(r, false)
-	_ = stm.start(context.Background(), cfg)
+func tUtilOutStreamInitWithConfig(t *testing.T, hosts *host.Hosts, cfg *outConfig, conn *fakeSocketConn) *outStream {
+	d := newDialer()
+	d.dialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+		return conn, nil
+	}
+	stm := newOutStream(cfg, hosts, d, false)
+	_ = stm.start(context.Background()) // start stream
 
 	elem := conn.outboundRead()
 	require.Equal(t, "stream:stream", elem.Name())
@@ -328,10 +258,10 @@ func tUtilOutStreamInitWithConfig(t *testing.T, r *router.Router, cfg *streamCon
 	return stm
 }
 
-func tUtilOutStreamInit(t *testing.T, r *router.Router) (*outStream, *fakeSocketConn) {
-	cfg, conn := tUtilOutStreamDefaultConfig()
-	stm := newOutStream(r, false)
-	_ = stm.start(context.Background(), cfg)
+func tUtilOutStreamInit(t *testing.T, hosts *host.Hosts) (*outStream, *fakeSocketConn) {
+	cfg, dialer, conn := tUtilOutStreamDefaultConfig()
+	stm := newOutStream(cfg, hosts, dialer, false)
+	_ = stm.start(context.Background()) // start stream
 
 	elem := conn.outboundRead()
 	require.Equal(t, "stream:stream", elem.Name())
@@ -340,32 +270,16 @@ func tUtilOutStreamInit(t *testing.T, r *router.Router) (*outStream, *fakeSocket
 	return stm, conn
 }
 
-func tUtilOutStreamDefaultConfig() (*streamConfig, *fakeSocketConn) {
-	modules := map[string]struct{}{}
-	modules["roster"] = struct{}{}
-	modules["last_activity"] = struct{}{}
-	modules["private"] = struct{}{}
-	modules["vcard"] = struct{}{}
-	modules["registration"] = struct{}{}
-	modules["version"] = struct{}{}
-	modules["ping"] = struct{}{}
-	modules["blocking_command"] = struct{}{}
-	modules["offline"] = struct{}{}
-
+func tUtilOutStreamDefaultConfig() (*outConfig, Dialer, *fakeSocketConn) {
 	conn := newFakeSocketConn()
-	tr := transport.NewSocketTransport(conn, 4096)
-	return &streamConfig{
-		remoteDomain: "jabber.org",
-		modConfig: &module.Config{
-			Enabled:      modules,
-			Offline:      offline.Config{QueueSize: 10},
-			Registration: xep0077.Config{AllowRegistration: true, AllowChange: true},
-			Version:      xep0092.Config{ShowOS: true},
-			Ping:         xep0199.Config{SendInterval: 5, Send: true},
-		},
-		connectTimeout: time.Second,
-		transport:      tr,
-		maxStanzaSize:  8192,
-		keyGen:         &keyGen{secret: "s3cr3t"},
-	}, conn
+	d := newDialer()
+	d.dialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+		return conn, nil
+	}
+	return &outConfig{
+		remoteDomain:  "jabber.org",
+		maxStanzaSize: 8192,
+		keepAlive:     4096,
+		keyGen:        &keyGen{secret: "s3cr3t"},
+	}, d, conn
 }
