@@ -68,8 +68,7 @@ func (s *scionServer) listenScionConn(address *snet.Addr) error {
 			if err != nil {
 				log.Infof("No streams opened by the dialer")
 			}
-			go s.startInStream(transport.NewQUICSocketTransport(conn, accStream,
-				s.cfg.Scion.KeepAlive))
+			go s.startInStream(transport.NewQUICSocketTransport(conn, accStream))
 			continue
 		}
 	}
@@ -80,11 +79,10 @@ func (s *scionServer) listenScionConn(address *snet.Addr) error {
 func (s *scionServer) startInStream(tr transport.Transport) {
 	stm := newInStream(&inConfig{
 		keyGen:         &keyGen{s.cfg.DialbackSecret},
-		transport:      tr,
 		connectTimeout: s.cfg.ConnectTimeout,
 		timeout:        s.cfg.Timeout,
 		maxStanzaSize:  s.cfg.MaxStanzaSize,
 		onDisconnect: s.unregisterInStream,
-	}, s.mods, s.newOutFn, s.router, true)
+	}, tr, s.mods, s.newOutFn, s.router, true)
 	s.registerInStream(stm)
 }

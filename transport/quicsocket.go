@@ -8,7 +8,6 @@ package transport
 import (
 	"bufio"
 	"crypto/tls"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -19,14 +18,12 @@ type quicSocketTransport struct {
 }
 
 // NewQUICSocketTransport create and return a new quicSocketTransport.
-func NewQUICSocketTransport(conn quic.Session, uniStream quic.Stream,
-	keepAlive time.Duration) Transport {
+func NewQUICSocketTransport(conn quic.Session, uniStream quic.Stream) Transport {
 	s := &quicSocketTransport{
 		socketTransport: socketTransport{
 			rw:        uniStream,
 			br:        bufio.NewReaderSize(uniStream, socketBuffSize),
 			bw:        bufio.NewWriterSize(uniStream, socketBuffSize),
-			keepAlive: keepAlive,
 		},
 		conn: conn,
 	}

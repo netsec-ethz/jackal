@@ -12,7 +12,6 @@ import (
 
 	"github.com/netsec-ethz/scion-apps/lib/scionutil"
 	"github.com/ortuman/jackal/stream"
-	"github.com/ortuman/jackal/transport"
 	"github.com/pkg/errors"
 	"github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/sock/reliable"
@@ -32,13 +31,11 @@ const (
 type TransportConfig struct {
 	BindAddress string
 	Port        int
-	KeepAlive   time.Duration
 }
 
 type transportConfigProxy struct {
 	BindAddress string `yaml:"bind_addr"`
 	Port        int    `yaml:"port"`
-	KeepAlive   int    `yaml:"keep_alive"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -51,11 +48,6 @@ func (c *TransportConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	c.Port = p.Port
 	if c.Port == 0 {
 		c.Port = defaultTransportPort
-	}
-	if p.KeepAlive > 0 {
-		c.KeepAlive = time.Duration(p.KeepAlive) * time.Second
-	} else {
-		c.KeepAlive = defaultTransportKeepAlive
 	}
 	return nil
 }
@@ -136,6 +128,7 @@ type Config struct {
 	ID             string
 	DialTimeout    time.Duration
 	ConnectTimeout time.Duration
+	KeepAlive      time.Duration
 	Timeout        time.Duration
 	DialbackSecret string
 	MaxStanzaSize  int
@@ -147,6 +140,7 @@ type configProxy struct {
 	ID             string          `yaml:"id"`
 	DialTimeout    int             `yaml:"dial_timeout"`
 	ConnectTimeout int             `yaml:"connect_timeout"`
+	KeepAlive      int             `yaml:"keep_alive"`
 	Timeout        int             `yaml:"timeout"`
 	DialbackSecret string          `yaml:"dialback_secret"`
 	MaxStanzaSize  int             `yaml:"max_stanza_size"`
@@ -173,6 +167,11 @@ func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if c.ConnectTimeout == 0 {
 		c.ConnectTimeout = defaultConnectTimeout
 	}
+	if p.KeepAlive > 0 {
+		c.KeepAlive = time.Duration(p.KeepAlive) * time.Second
+	} else {
+		c.KeepAlive = defaultTransportKeepAlive
+	}
 	c.Timeout = time.Duration(p.Timeout) * time.Second
 	if c.Timeout == 0 {
 		c.Timeout = defaultTimeout
@@ -190,8 +189,8 @@ type inConfig struct {
 	keyGen         *keyGen
 	connectTimeout time.Duration
 	timeout        time.Duration
+	keepAlive      time.Duration
 	tls            *tls.Config
-	transport      transport.Transport
 	maxStanzaSize  int
 	onDisconnect   func(s stream.S2SIn)
 }
