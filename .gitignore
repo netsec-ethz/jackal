@@ -33,3 +33,6 @@ coverage.txt
 
 # Binary 
 jackal
+
+# Configuration file
+config.yml
