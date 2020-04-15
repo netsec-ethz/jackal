@@ -16,7 +16,6 @@ require (
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/gopacket v1.1.17 // indirect
 	github.com/google/uuid v1.1.1
-	github.com/gorilla/websocket v1.4.1
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec // indirect
 	github.com/kormat/fmt15 v0.0.0-20181112140556-ee69fecb2656 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
