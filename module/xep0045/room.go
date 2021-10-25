@@ -71,7 +71,9 @@ func (s *Muc) createRoom(ctx context.Context, roomJID *jid.JID, owner *mucmodel.
 		Config:  s.GetDefaultRoomConfig(),
 		Name:    roomJID.Node(),
 		RoomJID: roomJID,
-		Locked:  true,
+		// NOTE(mmalesev) Locked should be true here, however some clients (e.g. profanity) have issues unlocking, so
+		// this is a temporary hack
+		Locked:  false,
 	}
 
 	err := s.AddOccupantToRoom(ctx, r, owner)

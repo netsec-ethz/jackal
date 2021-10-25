@@ -31,7 +31,7 @@ jobs:
             set -xe
             go test ./...
 
-  integration:
+  scion:
     docker:
       - image: circleci/golang:1.14
     working_directory: ~/repo
@@ -49,12 +49,12 @@ jobs:
          docker_layer_caching: false #not available in the free plan
 
       - run:
-          name: build
+          name: Build jackal
           command: |
             set -xe
             make build
 
-      # Start integration tests
+      # Start scion integration tests
       - run:
           name: Build containers
           command: |
@@ -62,7 +62,7 @@ jobs:
             sudo -E docker-compose -f .circleci/docker-compose.yml kill  # stop containers
             sudo -E docker-compose -f .circleci/docker-compose.yml down  # bring composition down
             sudo -E docker-compose -f .circleci/docker-compose.yml build
-
+            
       - run:
           name: Start AS Containers
           command: |
@@ -129,9 +129,79 @@ jobs:
             set -xe
             sudo -E docker exec profanity1 /bin/bash -c 'until grep -q "user2@server2\.xmpp" /root/.local/share/profanity/logs/profanity.log; do cat /root/.local/share/profanity/logs/profanity.log; sleep 1; done;'
 
+  groupchat:
+    docker:
+      - image: circleci/golang:1.14
+    working_directory: ~/repo
+    environment:
+      BASH_ENV: "~/repo/.circleci/bash_env.sh"
+      JACKAL_DIR: "/root"
+      SERVER_IP: 172.30.0.110
+
+    steps:
+      - checkout
+
+      - setup_remote_docker:
+         docker_layer_caching: false #not available in the free plan
+
+      - run:
+          name: Build jackal
+          command: |
+            set -xe
+            make build
+
+      - run:
+          name: Build containers
+          command: |
+            set -xe
+            sudo -E docker-compose -f .circleci/docker-compose-muc.yml kill
+            sudo -E docker-compose -f .circleci/docker-compose-muc.yml down
+            sudo -E docker-compose -f .circleci/docker-compose-muc.yml build
+
+      - run:
+          name: Start server container
+          command: |
+            set -xe
+            sudo -E docker-compose -f .circleci/docker-compose-muc.yml up --no-start jackal_server
+            sudo -E docker cp ./jackal jackal_server:/root/jackal
+            sudo -E docker cp ./.circleci/setup/muc/start_server.sh jackal_server:/root/start_server.sh
+            sudo -E docker-compose -f .circleci/docker-compose-muc.yml up --no-recreate -d jackal_server
+
+      - run:
+          name: Start jackal server
+          command: |
+            set -xe
+            sudo -E docker exec jackal_server /bin/bash -c '/root/start_server.sh;'
+            sudo -E docker exec jackal_server /bin/bash -c "until grep -q 'listening\ at\ 0.0.0.0\:5222' ${JACKAL_DIR}/jackal.log; do sleep 1; done;" 
+
+      - run:
+          name: Start client containers
+          command: |
+            set -xe
+            for c in client_owner client_admin; do
+                sudo -E docker-compose -f .circleci/docker-compose-muc.yml up --no-start $c
+                sudo -E docker cp ./.circleci/setup/muc/setup_client.sh $c:/root/setup_client.sh
+                sudo -E docker-compose -f .circleci/docker-compose-muc.yml up --no-recreate -d $c
+                sudo -E docker exec $c /bin/bash -c '/root/setup_client.sh;'
+            done
+
+      - run:
+          name: Owner connects and creates a room
+          command: |
+            set -xe
+            sudo -E docker exec -it -d client_owner profanity -a alice
+
+      - run:
+          name: Admin connects, joins the room and dms the owner from the room
+          command: |
+            set -xe
+            sudo -E docker exec -it -d client_admin profanity -a bob
+            sudo -E docker exec client_owner /bin/bash -c 'until grep -q "bob\:\ Hi" /root/.local/share/profanity/chatlogs/alice_at_muc_server.xmpp/netsec_at_conference.muc_server.xmpp_bob/*\.log; do cat /root/.local/share/profanity/alice_at_muc_server.xmpp/netsec_at_conference.muc_server.xmpp_bob/*\.log; sleep 1; done;'
+
 workflows:
   version: 2
   tests:
     jobs:
       - unit_tests
-      - integration
+      - scion
+      - groupchat

@@ -1,0 +1,2 @@
+/join netsec@conference.muc_server.xmpp
+/msg netsec@conference.muc_server.xmpp/alice Hi

@@ -1,0 +1,69 @@
+version: "2"
+
+networks:
+  muc_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16
+
+services:
+  jackal_db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 'password'
+    networks:
+      - muc_net
+
+  jackal_server:
+    build:
+      context: .
+      dockerfile: Dockerfile-jackal
+    container_name: jackal_server
+    depends_on:
+      - jackal_db
+    networks:
+      muc_net:
+        ipv4_address: ${SERVER_IP}
+    tty: true
+    privileged: true
+    links:
+      - jackal_db:mysql_host
+
+  client_owner:
+    build:
+      context: .
+      dockerfile: Dockerfile-profanity
+    container_name: client_owner
+    networks:
+      - muc_net
+    environment:
+      CLIENT_ID: owner
+    tty: true
+    entrypoint: /bin/bash
+
+  client_admin:
+    build:
+      context: .
+      dockerfile: Dockerfile-profanity
+    container_name: client_admin
+    networks:
+      - muc_net
+    environment:
+      CLIENT_ID: admin
+    tty: true
+    entrypoint: /bin/bash
+
+  client_member:
+    build:
+      context: .
+      dockerfile: Dockerfile-profanity
+    container_name: client_member
+    networks:
+      - muc_net
+    environment:
+      CLIENT_ID: member
+    tty: true
+    entrypoint: /bin/bash

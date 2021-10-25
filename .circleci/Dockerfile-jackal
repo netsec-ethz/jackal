@@ -1,0 +1,6 @@
+FROM ubuntu:18.04
+
+# Jackal 
+RUN apt-get update && apt-get install --assume-yes sudo mysql-client
+COPY ./setup/wait_for_db.sh /root/
+COPY testdata/muc/server/ /root/
