@@ -6,26 +6,28 @@
 package xep0030
 
 import (
+	"context"
 	"sync"
 
 	"github.com/ortuman/jackal/log"
-	"github.com/ortuman/jackal/model/rostermodel"
+	rostermodel "github.com/ortuman/jackal/model/roster"
 	"github.com/ortuman/jackal/module/xep0004"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
 
 type serverProvider struct {
-	router          *router.Router
+	router          router.Router
+	rosterRep       repository.Roster
 	mu              sync.RWMutex
 	serverItems     []Item
 	serverFeatures  []Feature
 	accountFeatures []Feature
 }
 
-func (sp *serverProvider) Identities(toJID, fromJID *jid.JID, node string) []Identity {
+func (sp *serverProvider) Identities(_ context.Context, toJID, _ *jid.JID, node string) []Identity {
 	if node != "" {
 		return nil
 	}
@@ -35,29 +37,29 @@ func (sp *serverProvider) Identities(toJID, fromJID *jid.JID, node string) []Ide
 	return []Identity{{Type: "registered", Category: "account"}}
 }
 
-func (sp *serverProvider) Items(toJID, fromJID *jid.JID, node string) ([]Item, *xmpp.StanzaError) {
+func (sp *serverProvider) Items(ctx context.Context, toJID, fromJID *jid.JID, node string) ([]Item, *xmpp.StanzaError) {
 	if node != "" {
 		return nil, nil
 	}
-	var itms []Item
+	var items []Item
 	if toJID.IsServer() {
-		itms = append(itms, Item{Jid: fromJID.ToBareJID().String()})
-		itms = append(itms, sp.serverItems...)
+		items = append(items, Item{Jid: fromJID.ToBareJID().String()})
+		items = append(items, sp.serverItems...)
 	} else {
 		// add account resources
-		if sp.isSubscribedTo(toJID, fromJID) {
-			stms := sp.router.UserStreams(toJID.Node())
-			for _, stm := range stms {
-				itms = append(itms, Item{Jid: stm.JID().String()})
+		if sp.isSubscribedTo(ctx, toJID, fromJID) {
+			streams := sp.router.LocalStreams(toJID.Node())
+			for _, stm := range streams {
+				items = append(items, Item{Jid: stm.JID().String()})
 			}
 		} else {
 			return nil, xmpp.ErrSubscriptionRequired
 		}
 	}
-	return itms, nil
+	return items, nil
 }
 
-func (sp *serverProvider) Features(toJID, fromJID *jid.JID, node string) ([]Feature, *xmpp.StanzaError) {
+func (sp *serverProvider) Features(ctx context.Context, toJID, fromJID *jid.JID, node string) ([]Feature, *xmpp.StanzaError) {
 	sp.mu.RLock()
 	defer sp.mu.RUnlock()
 	if node != "" {
@@ -66,13 +68,13 @@ func (sp *serverProvider) Features(toJID, fromJID *jid.JID, node string) ([]Feat
 	if toJID.IsServer() {
 		return sp.serverFeatures, nil
 	}
-	if sp.isSubscribedTo(toJID, fromJID) {
+	if sp.isSubscribedTo(ctx, toJID, fromJID) {
 		return sp.accountFeatures, nil
 	}
 	return nil, xmpp.ErrSubscriptionRequired
 }
 
-func (sp *serverProvider) Form(toJID, fromJID *jid.JID, node string) (*xep0004.DataForm, *xmpp.StanzaError) {
+func (sp *serverProvider) Form(_ context.Context, _, _ *jid.JID, _ string) (*xep0004.DataForm, *xmpp.StanzaError) {
 	return nil, nil
 }
 
@@ -142,11 +144,11 @@ func (sp *serverProvider) unregisterAccountFeature(feature Feature) {
 	}
 }
 
-func (sp *serverProvider) isSubscribedTo(contact *jid.JID, userJID *jid.JID) bool {
-	if contact.Matches(userJID, jid.MatchesBare) {
+func (sp *serverProvider) isSubscribedTo(ctx context.Context, contact *jid.JID, userJID *jid.JID) bool {
+	if contact.MatchesWithOptions(userJID, jid.MatchesBare) {
 		return true
 	}
-	ri, err := storage.FetchRosterItem(userJID.Node(), contact.ToBareJID().String())
+	ri, err := sp.rosterRep.FetchRosterItem(ctx, userJID.Node(), contact.ToBareJID().String())
 	if err != nil {
 		log.Error(err)
 		return false

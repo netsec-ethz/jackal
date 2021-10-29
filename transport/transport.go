@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"time"
 
 	"github.com/ortuman/jackal/transport/compress"
 )
@@ -19,9 +20,6 @@ type Type int
 const (
 	// Socket represents a socket transport type.
 	Socket Type = iota + 1
-
-	// WebSocket represents a websocket transport type.
-	WebSocket
 )
 
 // String returns TransportType string representation.
@@ -29,8 +27,6 @@ func (tt Type) String() string {
 	switch tt {
 	case Socket:
 		return "socket"
-	case WebSocket:
-		return "websocket"
 	}
 	return ""
 }
@@ -56,19 +52,19 @@ type Transport interface {
 	// Flush writes any buffered data to the underlying io.Writer.
 	Flush() error
 
+	// SetWriteDeadline sets the deadline for future write calls.
+	SetWriteDeadline(d time.Time) error
+
 	// StartTLS secures the transport using SSL/TLS
 	StartTLS(cfg *tls.Config, asClient bool)
 
-	// EnableCompression activates a compression
-	// mechanism on the transport.
+	// EnableCompression activates a compression mechanism on the transport.
 	EnableCompression(compress.Level)
 
-	// ChannelBindingBytes returns current transport
-	// channel binding bytes.
+	// ChannelBindingBytes returns current transport channel binding bytes.
 	ChannelBindingBytes(ChannelBindingMechanism) []byte
 
-	// PeerCertificates returns the certificate chain
-	// presented by remote peer.
+	// PeerCertificates returns the certificate chain presented by remote peer.
 	PeerCertificates() []*x509.Certificate
 }
 

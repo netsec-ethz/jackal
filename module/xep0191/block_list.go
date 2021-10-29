@@ -6,15 +6,17 @@
 package xep0191
 
 import (
+	"context"
+
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/model"
-	"github.com/ortuman/jackal/model/rostermodel"
-	"github.com/ortuman/jackal/module/roster"
+	rostermodel "github.com/ortuman/jackal/model/roster"
 	"github.com/ortuman/jackal/module/xep0030"
+	"github.com/ortuman/jackal/module/xep0115"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/runqueue"
-	"github.com/ortuman/jackal/storage"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/stream"
+	"github.com/ortuman/jackal/util/runqueue"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 	"github.com/pborman/uuid"
@@ -26,19 +28,23 @@ const (
 	xep191RequestedContextKey = "xep_191:requested"
 )
 
-// BlockingCommand returns a blocking command IQ handler module.
+// BlockingCommand represents a blocking command IQ handler module.
 type BlockingCommand struct {
-	router   *router.Router
-	roster   *roster.Roster
-	runQueue *runqueue.RunQueue
+	runQueue     *runqueue.RunQueue
+	router       router.Router
+	blockListRep repository.BlockList
+	rosterRep    repository.Roster
+	entityCaps   *xep0115.EntityCaps
 }
 
 // New returns a blocking command IQ handler module.
-func New(disco *xep0030.DiscoInfo, roster *roster.Roster, router *router.Router) *BlockingCommand {
+func New(disco *xep0030.DiscoInfo, entityCaps *xep0115.EntityCaps, router router.Router, rosterRep repository.Roster, blockListRep repository.BlockList) *BlockingCommand {
 	b := &BlockingCommand{
-		router:   router,
-		roster:   roster,
-		runQueue: runqueue.New("xep0191"),
+		runQueue:     runqueue.New("xep0191"),
+		router:       router,
+		blockListRep: blockListRep,
+		rosterRep:    rosterRep,
+		entityCaps:   entityCaps,
 	}
 	if disco != nil {
 		disco.RegisterServerFeature(blockingCommandNamespace)
@@ -47,8 +53,7 @@ func New(disco *xep0030.DiscoInfo, roster *roster.Roster, router *router.Router)
 	return b
 }
 
-// MatchesIQ returns whether or not an IQ should be
-// processed by the blocking command module.
+// MatchesIQ returns whether or not an IQ should be processed by the blocking command module.
 func (x *BlockingCommand) MatchesIQ(iq *xmpp.IQ) bool {
 	e := iq.Elements()
 	blockList := e.ChildNamespace("blocklist", blockingCommandNamespace)
@@ -57,15 +62,14 @@ func (x *BlockingCommand) MatchesIQ(iq *xmpp.IQ) bool {
 	return (iq.IsGet() && blockList != nil) || (iq.IsSet() && (block != nil || unblock != nil))
 }
 
-// ProcessIQ processes a blocking command IQ
-// taking according actions over the associated stream.
-func (x *BlockingCommand) ProcessIQ(iq *xmpp.IQ) {
+// ProcessIQ processes a blocking command IQ taking according actions over the associated stream.
+func (x *BlockingCommand) ProcessIQ(ctx context.Context, iq *xmpp.IQ) {
 	x.runQueue.Run(func() {
-		stm := x.router.UserStream(iq.FromJID())
+		stm := x.router.LocalStream(iq.FromJID().Node(), iq.FromJID().Resource())
 		if stm == nil {
 			return
 		}
-		x.processIQ(iq, stm)
+		x.processIQ(ctx, iq, stm)
 	})
 }
 
@@ -77,147 +81,160 @@ func (x *BlockingCommand) Shutdown() error {
 	return nil
 }
 
-func (x *BlockingCommand) processIQ(iq *xmpp.IQ, stm stream.C2S) {
+func (x *BlockingCommand) processIQ(ctx context.Context, iq *xmpp.IQ, stm stream.C2S) {
 	if iq.IsGet() {
-		x.sendBlockList(iq, stm)
+		x.sendBlockList(ctx, iq, stm)
 	} else if iq.IsSet() {
 		e := iq.Elements()
 		if block := e.ChildNamespace("block", blockingCommandNamespace); block != nil {
-			x.block(iq, block, stm)
+			x.block(ctx, iq, block, stm)
 		} else if unblock := e.ChildNamespace("unblock", blockingCommandNamespace); unblock != nil {
-			x.unblock(iq, unblock, stm)
+			x.unblock(ctx, iq, unblock, stm)
 		}
 	}
 }
 
-func (x *BlockingCommand) sendBlockList(iq *xmpp.IQ, stm stream.C2S) {
+func (x *BlockingCommand) sendBlockList(ctx context.Context, iq *xmpp.IQ, stm stream.C2S) {
 	fromJID := iq.FromJID()
-	blItms, err := storage.FetchBlockListItems(fromJID.Node())
+	blItems, err := x.blockListRep.FetchBlockListItems(ctx, fromJID.Node())
 	if err != nil {
 		log.Error(err)
-		stm.SendElement(iq.InternalServerError())
+		stm.SendElement(ctx, iq.InternalServerError())
 		return
 	}
 	blockList := xmpp.NewElementNamespace("blocklist", blockingCommandNamespace)
-	for _, blItm := range blItms {
+	for _, blItem := range blItems {
 		itElem := xmpp.NewElementName("item")
-		itElem.SetAttribute("jid", blItm.JID)
+		itElem.SetAttribute("jid", blItem.JID)
 		blockList.AppendElement(itElem)
 	}
+	stm.SetValue(xep191RequestedContextKey, true)
+
 	reply := iq.ResultIQ()
 	reply.AppendElement(blockList)
-	stm.SendElement(reply)
-
-	stm.SetBool(xep191RequestedContextKey, true)
+	stm.SendElement(ctx, reply)
 }
 
-func (x *BlockingCommand) block(iq *xmpp.IQ, block xmpp.XElement, stm stream.C2S) {
-	var bl []model.BlockListItem
-
+func (x *BlockingCommand) block(ctx context.Context, iq *xmpp.IQ, block xmpp.XElement, stm stream.C2S) {
 	items := block.Elements().Children("item")
 	if len(items) == 0 {
-		stm.SendElement(iq.BadRequestError())
+		stm.SendElement(ctx, iq.BadRequestError())
 		return
 	}
 	jds, err := x.extractItemJIDs(items)
 	if err != nil {
 		log.Error(err)
-		stm.SendElement(iq.JidMalformedError())
+		stm.SendElement(ctx, iq.JidMalformedError())
 		return
 	}
-	blItems, ris, err := x.fetchBlockListAndRosterItems(stm)
+	blItems, ris, err := x.fetchBlockListAndRosterItems(ctx, stm.Username())
 	if err != nil {
 		log.Error(err)
-		stm.SendElement(iq.InternalServerError())
+		stm.SendElement(ctx, iq.InternalServerError())
 		return
 	}
 	username := stm.Username()
 	for _, j := range jds {
-		if !x.isJIDInBlockList(j, blItems) {
-			x.broadcastPresenceMatchingJID(j, ris, xmpp.UnavailableType, stm)
-			bl = append(bl, model.BlockListItem{Username: username, JID: j.String()})
+		if x.isJIDInBlockList(j, blItems) {
+			continue
 		}
+		err := x.blockListRep.InsertBlockListItem(ctx, &model.BlockListItem{
+			Username: username,
+			JID:      j.String(),
+		})
+		if err != nil {
+			log.Error(err)
+			stm.SendElement(ctx, iq.InternalServerError())
+			return
+		}
+		x.broadcastPresenceMatchingJID(ctx, j, ris, xmpp.UnavailableType, stm)
 	}
-	if err := storage.InsertBlockListItems(bl); err != nil {
-		log.Error(err)
-		stm.SendElement(iq.InternalServerError())
-		return
-	}
-	x.router.ReloadBlockList(username)
 
-	stm.SendElement(iq.ResultIQ())
-	x.pushIQ(block, stm)
+	stm.SendElement(ctx, iq.ResultIQ())
+	x.pushIQ(ctx, block, stm)
 }
 
-func (x *BlockingCommand) unblock(iq *xmpp.IQ, unblock xmpp.XElement, stm stream.C2S) {
+func (x *BlockingCommand) unblock(ctx context.Context, iq *xmpp.IQ, unblock xmpp.XElement, stm stream.C2S) {
 	items := unblock.Elements().Children("item")
 	jds, err := x.extractItemJIDs(items)
 	if err != nil {
 		log.Error(err)
-		stm.SendElement(iq.JidMalformedError())
-		return
-	}
-	blItems, ris, err := x.fetchBlockListAndRosterItems(stm)
-	if err != nil {
-		log.Error(err)
-		stm.SendElement(iq.InternalServerError())
+		stm.SendElement(ctx, iq.JidMalformedError())
 		return
 	}
 	username := stm.Username()
-	var bl []model.BlockListItem
-	if len(jds) == 0 {
-		for _, blItem := range blItems {
-			j, _ := jid.NewWithString(blItem.JID, true)
-			x.broadcastPresenceMatchingJID(j, ris, xmpp.AvailableType, stm)
-		}
-		bl = blItems
 
-	} else {
-		for _, j := range jds {
-			if x.isJIDInBlockList(j, blItems) {
-				x.broadcastPresenceMatchingJID(j, ris, xmpp.AvailableType, stm)
-				bl = append(bl, model.BlockListItem{Username: username, JID: j.String()})
-			}
-		}
-	}
-	if err := storage.DeleteBlockListItems(bl); err != nil {
+	blItems, ris, err := x.fetchBlockListAndRosterItems(ctx, username)
+	if err != nil {
 		log.Error(err)
-		stm.SendElement(iq.InternalServerError())
+		stm.SendElement(ctx, iq.InternalServerError())
 		return
 	}
-	x.router.ReloadBlockList(username)
+	if len(jds) > 0 {
+		for _, j := range jds {
+			if !x.isJIDInBlockList(j, blItems) {
+				continue
+			}
+			if err := x.blockListRep.DeleteBlockListItem(ctx, &model.BlockListItem{
+				Username: username,
+				JID:      j.String(),
+			}); err != nil {
+				log.Error(err)
+				stm.SendElement(ctx, iq.InternalServerError())
+				return
+			}
+			x.broadcastPresenceMatchingJID(ctx, j, ris, xmpp.AvailableType, stm)
+		}
+	} else { // remove all block list items
+		for _, blItem := range blItems {
+			if err := x.blockListRep.DeleteBlockListItem(ctx, &blItem); err != nil {
+				log.Error(err)
+				stm.SendElement(ctx, iq.InternalServerError())
+				return
+			}
+			j, _ := jid.NewWithString(blItem.JID, true)
 
-	stm.SendElement(iq.ResultIQ())
-	x.pushIQ(unblock, stm)
+			x.broadcastPresenceMatchingJID(ctx, j, ris, xmpp.AvailableType, stm)
+		}
+	}
+
+	stm.SendElement(ctx, iq.ResultIQ())
+	x.pushIQ(ctx, unblock, stm)
 }
 
-func (x *BlockingCommand) pushIQ(elem xmpp.XElement, stm stream.C2S) {
-	stms := x.router.UserStreams(stm.Username())
-	for _, stm := range stms {
-		if !stm.GetBool(xep191RequestedContextKey) {
+func (x *BlockingCommand) pushIQ(ctx context.Context, elem xmpp.XElement, stm stream.C2S) {
+	streams := x.router.LocalStreams(stm.Username())
+	for _, stm := range streams {
+		requested, _ := stm.Value(xep191RequestedContextKey).(bool)
+		if !requested {
 			continue
 		}
 		iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 		iq.AppendElement(elem)
-		stm.SendElement(iq)
+		stm.SendElement(ctx, iq)
 	}
 }
 
-func (x *BlockingCommand) broadcastPresenceMatchingJID(jid *jid.JID, ris []rostermodel.Item, presenceType string, stm stream.C2S) {
-	if x.roster == nil {
+func (x *BlockingCommand) broadcastPresenceMatchingJID(ctx context.Context, blockedJID *jid.JID, ris []rostermodel.Item, presenceType string, stm stream.C2S) {
+	if x.entityCaps == nil {
 		// roster disabled
 		return
 	}
-	presences := x.roster.OnlinePresencesMatchingJID(jid)
-	for _, presence := range presences {
+	onlinePresences, err := x.entityCaps.PresencesMatchingJID(ctx, blockedJID)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	for _, onlinePresence := range onlinePresences {
+		presence := onlinePresence.Presence
 		if !x.isSubscribedTo(presence.FromJID().ToBareJID(), ris) {
 			continue
 		}
-		p := xmpp.NewPresence(presence.FromJID(), stm.JID().ToBareJID(), presenceType)
+		p := xmpp.NewPresence(stm.JID(), presence.FromJID(), presenceType)
 		if presenceType == xmpp.AvailableType {
 			p.AppendElements(presence.Elements().All())
 		}
-		x.router.MustRoute(p)
+		_ = x.router.MustRoute(ctx, p)
 	}
 }
 
@@ -231,26 +248,24 @@ func (x *BlockingCommand) isJIDInBlockList(jid *jid.JID, blItems []model.BlockLi
 }
 
 func (x *BlockingCommand) isSubscribedTo(jid *jid.JID, ris []rostermodel.Item) bool {
-	str := jid.String()
 	for _, ri := range ris {
-		if ri.JID == str && (ri.Subscription == rostermodel.SubscriptionTo || ri.Subscription == rostermodel.SubscriptionBoth) {
-			return true
+		if ri.JID == jid.String() {
+			return ri.Subscription == rostermodel.SubscriptionFrom || ri.Subscription == rostermodel.SubscriptionBoth
 		}
 	}
 	return false
 }
 
-func (x *BlockingCommand) fetchBlockListAndRosterItems(stm stream.C2S) ([]model.BlockListItem, []rostermodel.Item, error) {
-	username := stm.Username()
-	blItms, err := storage.FetchBlockListItems(username)
+func (x *BlockingCommand) fetchBlockListAndRosterItems(ctx context.Context, username string) ([]model.BlockListItem, []rostermodel.Item, error) {
+	blItems, err := x.blockListRep.FetchBlockListItems(ctx, username)
 	if err != nil {
 		return nil, nil, err
 	}
-	ris, _, err := storage.FetchRosterItems(username)
+	ris, _, err := x.rosterRep.FetchRosterItems(ctx, username)
 	if err != nil {
 		return nil, nil, err
 	}
-	return blItms, ris, nil
+	return blItems, ris, nil
 }
 
 func (x *BlockingCommand) extractItemJIDs(items []xmpp.XElement) ([]*jid.JID, error) {

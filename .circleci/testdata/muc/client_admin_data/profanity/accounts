@@ -1,0 +1,14 @@
+[bob]
+enabled=true
+jid=bob@muc_server.xmpp
+resource=profanity
+muc.nick=bob
+presence.last=online
+presence.login=online
+priority.online=0
+priority.chat=0
+priority.away=0
+priority.xa=0
+priority.dnd=0
+password=asdf
+script.start=admin_script

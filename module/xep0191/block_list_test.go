@@ -6,16 +6,19 @@
 package xep0191
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 	"time"
 
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/model"
-	"github.com/ortuman/jackal/model/rostermodel"
-	"github.com/ortuman/jackal/module/roster"
+	rostermodel "github.com/ortuman/jackal/model/roster"
+	"github.com/ortuman/jackal/module/xep0115"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	"github.com/ortuman/jackal/router/host"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -24,19 +27,18 @@ import (
 )
 
 func TestXEP0191_Matching(t *testing.T) {
-	rtr, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, presencesRep, blockListRep, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	rtr.Bind(stm)
+	r.Bind(context.Background(), stm)
 
-	r := roster.New(&roster.Config{}, rtr)
-	defer r.Shutdown()
+	ph := xep0115.New(r, presencesRep, "alloc-1234")
+	defer func() { _ = ph.Shutdown() }()
 
-	x := New(nil, r, rtr)
-	defer x.Shutdown()
+	x := New(nil, ph, r, rosterRep, blockListRep)
+	defer func() { _ = x.Shutdown() }()
 
 	// test MatchesIQ
 	iq1 := xmpp.NewIQType(uuid.New(), xmpp.GetType)
@@ -59,57 +61,58 @@ func TestXEP0191_Matching(t *testing.T) {
 }
 
 func TestXEP0191_GetBlockList(t *testing.T) {
-	rtr, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, presencesRep, blockListRep, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	rtr.Bind(stm)
+	r.Bind(context.Background(), stm)
 
-	r := roster.New(&roster.Config{}, rtr)
-	defer r.Shutdown()
+	ph := xep0115.New(r, presencesRep, "alloc-1234")
+	defer func() { _ = ph.Shutdown() }()
 
-	x := New(nil, r, rtr)
-	defer x.Shutdown()
+	x := New(nil, ph, r, rosterRep, blockListRep)
+	defer func() { _ = x.Shutdown() }()
 
-	storage.InsertBlockListItems([]model.BlockListItem{{
+	_ = blockListRep.InsertBlockListItem(context.Background(), &model.BlockListItem{
 		Username: "ortuman",
 		JID:      "hamlet@jackal.im/garden",
-	}, {
+	})
+	_ = blockListRep.InsertBlockListItem(context.Background(), &model.BlockListItem{
 		Username: "ortuman",
 		JID:      "jabber.org",
-	}})
+	})
 
 	iq1 := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq1.SetFromJID(j)
 	iq1.SetToJID(j)
 	iq1.AppendElement(xmpp.NewElementNamespace("blocklist", blockingCommandNamespace))
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem := stm.ReceiveElement()
 	bl := elem.Elements().ChildNamespace("blocklist", blockingCommandNamespace)
 	require.NotNil(t, bl)
 	require.Equal(t, 2, len(bl.Elements().Children("item")))
 
-	require.True(t, stm.GetBool(xep191RequestedContextKey))
+	requested, _ := stm.Value(xep191RequestedContextKey).(bool)
+	require.True(t, requested)
 
-	s.EnableMockedError()
-	x.ProcessIQ(iq1)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq1)
 	elem = stm.ReceiveElement()
+	require.Len(t, elem.Error().Elements().All(), 1)
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 }
 
 func TestXEP191_BlockAndUnblock(t *testing.T) {
-	rtr, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, presencesRep, blockListRep, rosterRep := setupTest("jackal.im")
 
-	r := roster.New(&roster.Config{}, rtr)
-	defer r.Shutdown()
+	caps := xep0115.New(r, presencesRep, "alloc-1234")
+	defer func() { _ = caps.Shutdown() }()
 
-	x := New(nil, r, rtr)
-	defer x.Shutdown()
+	x := New(nil, caps, r, rosterRep, blockListRep)
+	defer func() { _ = x.Shutdown() }()
 
 	j1, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 	stm1 := stream.NewMockC2S(uuid.New(), j1)
@@ -128,23 +131,28 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	stm3.SetAuthenticated(true)
 	stm4.SetAuthenticated(true)
 
-	rtr.Bind(stm1)
-	rtr.Bind(stm2)
-	rtr.Bind(stm3)
-	rtr.Bind(stm4)
+	stm1.SetPresence(xmpp.NewPresence(j1, j1, xmpp.AvailableType))
+	stm2.SetPresence(xmpp.NewPresence(j2, j2, xmpp.AvailableType))
+	stm3.SetPresence(xmpp.NewPresence(j3, j3, xmpp.AvailableType))
+	stm4.SetPresence(xmpp.NewPresence(j4, j4, xmpp.AvailableType))
+
+	r.Bind(context.Background(), stm1)
+	r.Bind(context.Background(), stm2)
+	r.Bind(context.Background(), stm3)
+	r.Bind(context.Background(), stm4)
 
 	// register presences
-	r.ProcessPresence(xmpp.NewPresence(j1, j1, xmpp.AvailableType))
-	r.ProcessPresence(xmpp.NewPresence(j2, j2, xmpp.AvailableType))
-	r.ProcessPresence(xmpp.NewPresence(j3, j3, xmpp.AvailableType))
-	r.ProcessPresence(xmpp.NewPresence(j4, j4, xmpp.AvailableType))
+	_, _ = caps.RegisterPresence(context.Background(), xmpp.NewPresence(j1, j1, xmpp.AvailableType))
+	_, _ = caps.RegisterPresence(context.Background(), xmpp.NewPresence(j2, j2, xmpp.AvailableType))
+	_, _ = caps.RegisterPresence(context.Background(), xmpp.NewPresence(j3, j3, xmpp.AvailableType))
+	_, _ = caps.RegisterPresence(context.Background(), xmpp.NewPresence(j4, j4, xmpp.AvailableType))
 
 	time.Sleep(time.Millisecond * 150) // wait until processed...
 
-	stm1.SetBool(xep191RequestedContextKey, true)
-	stm2.SetBool(xep191RequestedContextKey, true)
+	stm1.SetValue(xep191RequestedContextKey, true)
+	stm2.SetValue(xep191RequestedContextKey, true)
 
-	storage.InsertOrUpdateRosterItem(&rostermodel.Item{
+	_, _ = rosterRep.UpsertRosterItem(context.Background(), &rostermodel.Item{
 		Username:     "ortuman",
 		JID:          "romeo@jackal.im",
 		Subscription: "both",
@@ -157,8 +165,9 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	block := xmpp.NewElementNamespace("block", blockingCommandNamespace)
 	iq.AppendElement(block)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm1.ReceiveElement()
+	require.Len(t, elem.Error().Elements().All(), 1)
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	item := xmpp.NewElementName("item")
@@ -168,19 +177,20 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	iq.AppendElement(block)
 
 	// TEST BLOCK
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm1.ReceiveElement()
+	require.Len(t, elem.Error().Elements().All(), 1)
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 
 	// unavailable presence from *@jackal.im/jail
-	elem = stm1.ReceiveElement()
+	elem = stm4.ReceiveElement()
 	require.Equal(t, "presence", elem.Name())
 	require.Equal(t, xmpp.UnavailableType, elem.Type())
-	require.Equal(t, "romeo@jackal.im/jail", elem.From())
+	require.Equal(t, "ortuman@jackal.im/balcony", elem.From())
 
 	// result IQ
 	elem = stm1.ReceiveElement()
@@ -197,18 +207,12 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	item2 := block.Elements().Child("item")
 	require.NotNil(t, item2)
 
-	// ortuman@jackal.im/yard
-	elem = stm2.ReceiveElement()
-	require.Equal(t, "presence", elem.Name())
-	require.Equal(t, xmpp.UnavailableType, elem.Type())
-	require.Equal(t, "romeo@jackal.im/jail", elem.From())
-
 	elem = stm2.ReceiveElement()
 	require.Equal(t, "iq", elem.Name())
 	require.Equal(t, xmpp.SetType, elem.Type())
 
 	// check storage
-	bl, _ := storage.FetchBlockListItems("ortuman")
+	bl, _ := blockListRep.FetchBlockListItems(context.Background(), "ortuman")
 	require.NotNil(t, bl)
 	require.Equal(t, 1, len(bl))
 	require.Equal(t, "jackal.im/jail", bl[0].JID)
@@ -224,19 +228,20 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	unblock.AppendElement(item)
 	iq.AppendElement(unblock)
 
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm1.ReceiveElement()
+	require.Len(t, elem.Error().Elements().All(), 1)
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 
 	// receive available presence from *@jackal.im/jail
-	elem = stm1.ReceiveElement()
+	elem = stm4.ReceiveElement()
 	require.Equal(t, "presence", elem.Name())
 	require.Equal(t, xmpp.AvailableType, elem.Type())
-	require.Equal(t, "romeo@jackal.im/jail", elem.From())
+	require.Equal(t, "ortuman@jackal.im/balcony", elem.From())
 
 	// result IQ
 	elem = stm1.ReceiveElement()
@@ -254,13 +259,14 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	require.NotNil(t, item2)
 
 	// test full unblock
-	storage.InsertBlockListItems([]model.BlockListItem{{
+	_ = blockListRep.InsertBlockListItem(context.Background(), &model.BlockListItem{
 		Username: "ortuman",
 		JID:      "hamlet@jackal.im/garden",
-	}, {
+	})
+	_ = blockListRep.InsertBlockListItem(context.Background(), &model.BlockListItem{
 		Username: "ortuman",
 		JID:      "jabber.org",
-	}})
+	})
 
 	iqID = uuid.New()
 	iq = xmpp.NewIQType(iqID, xmpp.SetType)
@@ -269,21 +275,24 @@ func TestXEP191_BlockAndUnblock(t *testing.T) {
 	unblock = xmpp.NewElementNamespace("unblock", blockingCommandNamespace)
 	iq.AppendElement(unblock)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 
 	time.Sleep(time.Millisecond * 150) // wait until processed...
 
-	blItems, _ := storage.FetchBlockListItems("ortuman")
+	blItems, _ := blockListRep.FetchBlockListItems(context.Background(), "ortuman")
 	require.Equal(t, 0, len(blItems))
 }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, repository.Presences, repository.BlockList, repository.Roster) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+
+	presencesRep := memorystorage.NewPresences()
+	blockListRep := memorystorage.NewBlockList()
+	rosterRep := memorystorage.NewRoster()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(memorystorage.NewUser(), blockListRep),
+		nil,
+	)
+	return r, presencesRep, blockListRep, rosterRep
 }

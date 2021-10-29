@@ -6,6 +6,7 @@
 package pgsql
 
 import (
+	"context"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -13,45 +14,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	blockListInsert = "INSERT INTO blocklist_items (.+)"
-	blockListDelete = "DELETE FROM blocklist_items (.+)"
-	blockListSelect = "SELECT (.+) FROM blocklist_items (.+)"
-)
-
 // Insert a valid block list item
 func TestInsertValidBlockListItem(t *testing.T) {
-	s, mock := NewMock()
-	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
+	s, mock := newBlockListMock()
 
-	mock.ExpectBegin()
-	mock.ExpectExec(blockListInsert).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
+	mock.ExpectExec("INSERT INTO blocklist_items (.+)").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	err := s.InsertBlockListItems(items)
+	err := s.InsertBlockListItem(context.Background(), &model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"})
 	require.Nil(t, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
 // Insert the same row twice to test for key uniqueness validation
 func TestInsertDoubleBlockListItem(t *testing.T) {
-	s, mock := NewMock()
-	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
+	s, mock := newBlockListMock()
 
 	// First insertion will be successful
-	mock.ExpectBegin()
-	mock.ExpectExec(blockListInsert).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
+	mock.ExpectExec("INSERT INTO blocklist_items (.+)").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Second insertion will fail
-	mock.ExpectBegin()
-	mock.ExpectExec(blockListInsert).WillReturnError(errGeneric)
-	mock.ExpectRollback()
+	mock.ExpectExec("INSERT INTO blocklist_items (.+)").
+		WillReturnError(errGeneric)
 
-	err := s.InsertBlockListItems(items)
+	err := s.InsertBlockListItem(context.Background(), &model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"})
 	require.Nil(t, err)
 
-	err = s.InsertBlockListItems(items)
+	err = s.InsertBlockListItem(context.Background(), &model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"})
 	require.Equal(t, errGeneric, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }
@@ -59,55 +49,59 @@ func TestInsertDoubleBlockListItem(t *testing.T) {
 // Test fetching block list items
 func TestFetchBlockListItems(t *testing.T) {
 	var blockListColumns = []string{"username", "jid"}
-	s, mock := NewMock()
+	s, mock := newBlockListMock()
 
-	mock.ExpectQuery(blockListSelect).WithArgs("ortuman").
+	mock.ExpectQuery("SELECT (.+) FROM blocklist_items (.+)").
+		WithArgs("ortuman").
 		WillReturnRows(sqlmock.NewRows(blockListColumns).AddRow("ortuman", "noelia@jackal.im"))
 
-	_, err := s.FetchBlockListItems("ortuman")
+	_, err := s.FetchBlockListItems(context.Background(), "ortuman")
 	require.Nil(t, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
 // Test error handling on fetching block list items
 func TestFetchBlockListItemsError(t *testing.T) {
-	s, mock := NewMock()
+	s, mock := newBlockListMock()
 
-	mock.ExpectQuery(blockListSelect).
+	mock.ExpectQuery("SELECT (.+) FROM blocklist_items (.+)").
 		WithArgs("ortuman").
 		WillReturnError(errGeneric)
 
-	_, err := s.FetchBlockListItems("ortuman")
+	_, err := s.FetchBlockListItems(context.Background(), "ortuman")
 	require.Equal(t, errGeneric, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
 // Test deleting an item from the block list
 func TestDeleteBlockListItems(t *testing.T) {
-	s, mock := NewMock()
-	item := model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"}
+	s, mock := newBlockListMock()
 
-	mock.ExpectBegin()
-	mock.ExpectExec(blockListDelete).
-		WithArgs(item.Username, item.JID).
+	mock.ExpectExec("DELETE FROM blocklist_items (.+)").
+		WithArgs("ortuman", "noelia@jackal.im").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
 
-	err := s.DeleteBlockListItems([]model.BlockListItem{item})
+	err := s.DeleteBlockListItem(context.Background(), &model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"})
 	require.Nil(t, err)
 	require.Nil(t, mock.ExpectationsWereMet())
 }
 
 // Test error handling on deleting a row from the block list
 func TestDeleteBlockListItemsError(t *testing.T) {
-	s, mock := NewMock()
-	items := []model.BlockListItem{{Username: "ortuman", JID: "noelia@jackal.im"}}
+	s, mock := newBlockListMock()
 
-	mock.ExpectBegin()
-	mock.ExpectExec(blockListDelete).WillReturnError(errGeneric)
-	mock.ExpectRollback()
+	mock.ExpectExec("DELETE FROM blocklist_items (.+)").
+		WithArgs("ortuman", "noelia@jackal.im").
+		WillReturnError(errGeneric)
 
-	err := s.DeleteBlockListItems(items)
+	err := s.DeleteBlockListItem(context.Background(), &model.BlockListItem{Username: "ortuman", JID: "noelia@jackal.im"})
 	require.Equal(t, errGeneric, err)
 	require.Nil(t, mock.ExpectationsWereMet())
+}
+
+func newBlockListMock() (*pgSQLBlockList, sqlmock.Sqlmock) {
+	s, sqlMock := newStorageMock()
+	return &pgSQLBlockList{
+		pgSQLStorage: s,
+	}, sqlMock
 }

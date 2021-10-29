@@ -6,13 +6,14 @@
 package xep0092
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/module/xep0030"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/runqueue"
+	"github.com/ortuman/jackal/util/runqueue"
 	"github.com/ortuman/jackal/version"
 	"github.com/ortuman/jackal/xmpp"
 )
@@ -34,12 +35,12 @@ type Config struct {
 // Version represents a version module.
 type Version struct {
 	cfg      *Config
-	router   *router.Router
+	router   router.Router
 	runQueue *runqueue.RunQueue
 }
 
 // New returns a version IQ handler module.
-func New(config *Config, disco *xep0030.DiscoInfo, router *router.Router) *Version {
+func New(config *Config, disco *xep0030.DiscoInfo, router router.Router) *Version {
 	v := &Version{
 		cfg:      config,
 		router:   router,
@@ -51,17 +52,15 @@ func New(config *Config, disco *xep0030.DiscoInfo, router *router.Router) *Versi
 	return v
 }
 
-// MatchesIQ returns whether or not an IQ should be
-// processed by the version module.
+// MatchesIQ returns whether or not an IQ should be processed by the version module.
 func (x *Version) MatchesIQ(iq *xmpp.IQ) bool {
 	return iq.IsGet() && iq.Elements().ChildNamespace("query", versionNamespace) != nil && iq.ToJID().IsServer()
 }
 
-// ProcessIQ processes a version IQ taking according actions
-// over the associated stream.
-func (x *Version) ProcessIQ(iq *xmpp.IQ) {
+// ProcessIQ processes a version IQ taking according actions over the associated stream.
+func (x *Version) ProcessIQ(ctx context.Context, iq *xmpp.IQ) {
 	x.runQueue.Run(func() {
-		x.processIQ(iq)
+		x.processIQ(ctx, iq)
 	})
 }
 
@@ -73,16 +72,16 @@ func (x *Version) Shutdown() error {
 	return nil
 }
 
-func (x *Version) processIQ(iq *xmpp.IQ) {
+func (x *Version) processIQ(ctx context.Context, iq *xmpp.IQ) {
 	q := iq.Elements().ChildNamespace("query", versionNamespace)
 	if q == nil || q.Elements().Count() != 0 {
-		_ = x.router.Route(iq.BadRequestError())
+		_ = x.router.Route(ctx, iq.BadRequestError())
 		return
 	}
-	x.sendSoftwareVersion(iq)
+	x.sendSoftwareVersion(ctx, iq)
 }
 
-func (x *Version) sendSoftwareVersion(iq *xmpp.IQ) {
+func (x *Version) sendSoftwareVersion(ctx context.Context, iq *xmpp.IQ) {
 	userJID := iq.FromJID()
 	username := userJID.Node()
 	resource := userJID.Resource()
@@ -105,5 +104,5 @@ func (x *Version) sendSoftwareVersion(iq *xmpp.IQ) {
 		query.AppendElement(os)
 	}
 	result.AppendElement(query)
-	_ = x.router.Route(result)
+	_ = x.router.Route(ctx, result)
 }

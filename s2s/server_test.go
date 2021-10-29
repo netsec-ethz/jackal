@@ -11,23 +11,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ortuman/jackal/router"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestS2SSocketServer(t *testing.T) {
-	r, _, shutdown := setupTest(jackaDomain)
-	defer shutdown()
+	h := setupTestHosts(jackaDomain)
+	r, _ := router.New(h, nil, nil)
 
 	errCh := make(chan error)
 	cfg := Config{
 		ConnectTimeout: time.Second * time.Duration(5),
+		KeepAlive:      time.Duration(600) * time.Second,
 		MaxStanzaSize:  8192,
 		Transport: TransportConfig{
-			Port:      12778,
-			KeepAlive: time.Duration(600) * time.Second,
+			Port: 12778,
 		},
 	}
-	srv := server{cfg: &cfg, router: r, dialer: newDialer(&cfg, r)}
+	srv := newServer(&cfg, nil, nil, r)
 	go srv.start()
 	go func() {
 		time.Sleep(time.Millisecond * 150)
@@ -50,7 +52,7 @@ func TestS2SSocketServer(t *testing.T) {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*5))
 		defer cancel()
 
-		srv.shutdown(ctx)
+		_ = srv.shutdown(ctx)
 
 		errCh <- nil
 	}()

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ortuman/jackal/pool"
+	"github.com/ortuman/jackal/util/pool"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
 
@@ -42,7 +42,7 @@ type XElement interface {
 	IsError() bool
 	Error() XElement
 
-	ToXML(w io.Writer, includeClosing bool)
+	ToXML(w io.Writer, includeClosing bool) error
 	ToBytes(buf *bytes.Buffer) error
 }
 

@@ -6,33 +6,28 @@
 package auth
 
 import (
+	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/ortuman/jackal/model"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp/jid"
-	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/require"
 )
 
-func authTestSetup(user *model.User) (*stream.MockC2S, *memstorage.Storage) {
-	s := memstorage.New()
-	storage.Set(s)
+func authTestSetup(user *model.User) (*stream.MockC2S, *memorystorage.User) {
+	s := memorystorage.NewUser()
 
-	storage.InsertOrUpdateUser(user)
+	_ = s.UpsertUser(context.Background(), user)
 
 	j, _ := jid.New("mariana", "localhost", "res", true)
 
-	testStm := stream.NewMockC2S(uuid.New(), j)
+	testStm := stream.NewMockC2S(uuid.New().String(), j)
 
 	testStm.SetJID(j)
 	return testStm, s
-}
-
-func authTestTeardown() {
-	storage.Unset()
 }
 
 func TestAuthError(t *testing.T) {

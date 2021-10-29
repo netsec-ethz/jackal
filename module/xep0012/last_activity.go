@@ -6,16 +6,16 @@
 package xep0012
 
 import (
+	"context"
 	"strconv"
 	"time"
 
-	"github.com/ortuman/jackal/runqueue"
-
 	"github.com/ortuman/jackal/log"
-	"github.com/ortuman/jackal/model/rostermodel"
+	rostermodel "github.com/ortuman/jackal/model/roster"
 	"github.com/ortuman/jackal/module/xep0030"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
+	"github.com/ortuman/jackal/storage/repository"
+	"github.com/ortuman/jackal/util/runqueue"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
@@ -24,17 +24,21 @@ const lastActivityNamespace = "jabber:iq:last"
 
 // LastActivity represents a last activity stream module.
 type LastActivity struct {
-	router    *router.Router
+	router    router.Router
+	userRep   repository.User
+	rosterRep repository.Roster
 	startTime time.Time
 	runQueue  *runqueue.RunQueue
 }
 
 // New returns a last activity IQ handler module.
-func New(disco *xep0030.DiscoInfo, router *router.Router) *LastActivity {
+func New(disco *xep0030.DiscoInfo, router router.Router, userRep repository.User, rosterRep repository.Roster) *LastActivity {
 	x := &LastActivity{
-		router:    router,
-		startTime: time.Now(),
 		runQueue:  runqueue.New("xep0012"),
+		router:    router,
+		userRep:   userRep,
+		rosterRep: rosterRep,
+		startTime: time.Now(),
 	}
 	if disco != nil {
 		disco.RegisterServerFeature(lastActivityNamespace)
@@ -49,9 +53,9 @@ func (x *LastActivity) MatchesIQ(iq *xmpp.IQ) bool {
 }
 
 // ProcessIQ processes a last activity IQ taking according actions over the associated stream.
-func (x *LastActivity) ProcessIQ(iq *xmpp.IQ) {
+func (x *LastActivity) ProcessIQ(ctx context.Context, iq *xmpp.IQ) {
 	x.runQueue.Run(func() {
-		x.processIQ(iq)
+		x.processIQ(ctx, iq)
 	})
 }
 
@@ -63,46 +67,46 @@ func (x *LastActivity) Shutdown() error {
 	return nil
 }
 
-func (x *LastActivity) processIQ(iq *xmpp.IQ) {
+func (x *LastActivity) processIQ(ctx context.Context, iq *xmpp.IQ) {
 	fromJID := iq.FromJID()
 	toJID := iq.ToJID()
 	if toJID.IsServer() {
-		x.sendServerUptime(iq)
+		x.sendServerUptime(ctx, iq)
 	} else if toJID.IsBare() {
-		ok, err := x.isSubscribedTo(toJID, fromJID)
+		ok, err := x.isSubscribedTo(ctx, toJID, fromJID)
 		if err != nil {
 			log.Error(err)
-			_ = x.router.Route(iq.InternalServerError())
+			_ = x.router.Route(ctx, iq.InternalServerError())
 			return
 		}
 		if ok {
-			x.sendUserLastActivity(iq, toJID)
+			x.sendUserLastActivity(ctx, iq, toJID)
 		} else {
-			_ = x.router.Route(iq.ForbiddenError())
+			_ = x.router.Route(ctx, iq.ForbiddenError())
 		}
 	} else {
-		_ = x.router.Route(iq.BadRequestError())
+		_ = x.router.Route(ctx, iq.BadRequestError())
 	}
 }
 
-func (x *LastActivity) sendServerUptime(iq *xmpp.IQ) {
+func (x *LastActivity) sendServerUptime(ctx context.Context, iq *xmpp.IQ) {
 	secs := int(time.Duration(time.Now().UnixNano()-x.startTime.UnixNano()) / time.Second)
-	x.sendReply(iq, secs, "")
+	x.sendReply(ctx, iq, secs, "")
 }
 
-func (x *LastActivity) sendUserLastActivity(iq *xmpp.IQ, to *jid.JID) {
-	if len(x.router.UserStreams(to.Node())) > 0 { // user is online
-		x.sendReply(iq, 0, "")
+func (x *LastActivity) sendUserLastActivity(ctx context.Context, iq *xmpp.IQ, to *jid.JID) {
+	if len(x.router.LocalStreams(to.Node())) > 0 { // user is online
+		x.sendReply(ctx, iq, 0, "")
 		return
 	}
-	usr, err := storage.FetchUser(to.Node())
+	usr, err := x.userRep.FetchUser(ctx, to.Node())
 	if err != nil {
 		log.Error(err)
-		_ = x.router.Route(iq.InternalServerError())
+		_ = x.router.Route(ctx, iq.InternalServerError())
 		return
 	}
 	if usr == nil {
-		_ = x.router.Route(iq.ItemNotFoundError())
+		_ = x.router.Route(ctx, iq.ItemNotFoundError())
 		return
 	}
 	var secs int
@@ -113,23 +117,23 @@ func (x *LastActivity) sendUserLastActivity(iq *xmpp.IQ, to *jid.JID) {
 			status = st.Text()
 		}
 	}
-	x.sendReply(iq, secs, status)
+	x.sendReply(ctx, iq, secs, status)
 }
 
-func (x *LastActivity) sendReply(iq *xmpp.IQ, secs int, status string) {
+func (x *LastActivity) sendReply(ctx context.Context, iq *xmpp.IQ, secs int, status string) {
 	q := xmpp.NewElementNamespace("query", lastActivityNamespace)
 	q.SetText(status)
 	q.SetAttribute("seconds", strconv.Itoa(secs))
 	res := iq.ResultIQ()
 	res.AppendElement(q)
-	_ = x.router.Route(res)
+	_ = x.router.Route(ctx, res)
 }
 
-func (x *LastActivity) isSubscribedTo(contact *jid.JID, userJID *jid.JID) (bool, error) {
-	if contact.Matches(userJID, jid.MatchesBare) {
+func (x *LastActivity) isSubscribedTo(ctx context.Context, contact *jid.JID, userJID *jid.JID) (bool, error) {
+	if contact.MatchesWithOptions(userJID, jid.MatchesBare) {
 		return true, nil
 	}
-	ri, err := storage.FetchRosterItem(userJID.Node(), contact.ToBareJID().String())
+	ri, err := x.rosterRep.FetchRosterItem(ctx, userJID.Node(), contact.ToBareJID().String())
 	if err != nil {
 		return false, err
 	}

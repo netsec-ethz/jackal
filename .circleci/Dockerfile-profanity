@@ -1,7 +1,12 @@
-FROM ubuntu:18.04
+FROM archlinux:base-20211024.0.37588
+
+# a hack required to install profanity, glibc needs to be downgraded, the issue is with the arch docker image
+RUN patched_glibc=glibc-linux4-2.33-4-x86_64.pkg.tar.zst && \
+curl -LO "https://repo.archlinuxcn.org/x86_64/$patched_glibc" && \
+bsdtar -C / -xvf "$patched_glibc"
 
 # Install base
-RUN apt-get update && apt-get install --assume-yes profanity
+RUN pacman -Sy --noconfirm profanity
 
 # Set up the profanity account
 RUN mkdir --parent /root/.local/share/profanity

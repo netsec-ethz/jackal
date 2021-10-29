@@ -6,8 +6,10 @@
 package s2s
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,8 +17,9 @@ import (
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/module"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/runqueue"
 	"github.com/ortuman/jackal/session"
+	"github.com/ortuman/jackal/transport"
+	"github.com/ortuman/jackal/util/runqueue"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 )
@@ -29,27 +32,31 @@ const (
 
 type inStream struct {
 	id            string
-	cfg           *streamConfig
-	router        *router.Router
+	cfg           *inConfig
+	router        router.Router
 	mods          *module.Modules
 	localDomain   string
 	remoteDomain  string
 	state         uint32
+	tr            transport.Transport
+	mu            sync.RWMutex
 	connectTm     *time.Timer
+	readTimeoutTm *time.Timer
 	sess          *session.Session
 	secured       uint32
 	authenticated uint32
+	newOut        newOutFunc
 	runQueue      *runqueue.RunQueue
 }
 
-func newInStream(config *streamConfig, mods *module.Modules, router *router.Router,
-	alreadySecuredAndAuthd bool) *inStream {
-
+func newInStream(config *inConfig, tr transport.Transport, mods *module.Modules, newOutFn newOutFunc, router router.Router, alreadySecuredAndAuthd bool) *inStream {
 	id := nextInID()
 	s := &inStream{
 		id:       id,
 		cfg:      config,
+		tr:       tr,
 		router:   router,
+		newOut:   newOutFn,
 		mods:     mods,
 		runQueue: runqueue.New(id),
 	}
@@ -71,55 +78,63 @@ func (s *inStream) ID() string {
 	return s.id
 }
 
-func (s *inStream) Disconnect(err error) {
+func (s *inStream) Disconnect(ctx context.Context, err error) {
 	if s.getState() == inDisconnected {
 		return
 	}
 	waitCh := make(chan struct{})
 	s.runQueue.Run(func() {
-		s.disconnect(err)
+		s.disconnect(ctx, err)
 		close(waitCh)
 	})
 	<-waitCh
 }
 
 func (s *inStream) connectTimeout() {
-	s.runQueue.Run(func() { s.disconnect(streamerror.ErrConnectionTimeout) })
+	s.runQueue.Run(func() {
+		ctx, _ := context.WithTimeout(context.Background(), s.cfg.timeout)
+		s.disconnect(ctx, streamerror.ErrConnectionTimeout)
+	})
 }
 
 // runs on its own goroutine
 func (s *inStream) doRead() {
-	if elem, sErr := s.sess.Receive(); sErr == nil {
+	s.scheduleReadTimeout()
+	elem, sErr := s.sess.Receive()
+	s.cancelReadTimeout()
+
+	ctx, _ := context.WithTimeout(context.Background(), s.cfg.timeout)
+	if sErr == nil {
 		s.runQueue.Run(func() {
-			s.readElement(elem)
+			s.readElement(ctx, elem)
 		})
 	} else {
 		s.runQueue.Run(func() {
 			if s.getState() == inDisconnected {
 				return // already disconnected...
 			}
-			s.handleSessionError(sErr)
+			s.handleSessionError(ctx, sErr)
 		})
 	}
 }
 
-func (s *inStream) handleElement(elem xmpp.XElement) {
+func (s *inStream) handleElement(ctx context.Context, elem xmpp.XElement) {
 	switch s.getState() {
 	case inConnecting:
-		s.handleConnecting(elem)
+		s.handleConnecting(ctx, elem)
 	case inConnected:
-		s.handleConnected(elem)
+		s.handleConnected(ctx, elem)
 	}
 }
 
-func (s *inStream) handleConnecting(elem xmpp.XElement) {
+func (s *inStream) handleConnecting(ctx context.Context, elem xmpp.XElement) {
 	// cancel connection timeout timer
 	if s.connectTm != nil {
 		s.connectTm.Stop()
 		s.connectTm = nil
 	}
 	// assign domain pair
-	s.localDomain = elem.To()
+	s.localDomain = s.router.Hosts().DefaultHostName()
 	s.remoteDomain = elem.From()
 
 	// open stream session
@@ -133,15 +148,15 @@ func (s *inStream) handleConnecting(elem xmpp.XElement) {
 	features.SetAttribute("version", "1.0")
 
 	if !s.isSecured() {
-		starttls := xmpp.NewElementNamespace("starttls", tlsNamespace)
-		starttls.AppendElement(xmpp.NewElementName("required"))
-		features.AppendElement(starttls)
+		startTLS := xmpp.NewElementNamespace("starttls", tlsNamespace)
+		startTLS.AppendElement(xmpp.NewElementName("required"))
+		features.AppendElement(startTLS)
 		s.setState(inConnected)
-		_ = s.sess.Open(features)
+		_ = s.sess.Open(ctx, features)
 		return
 	}
 
-	_ = s.sess.Open(nil)
+	_ = s.sess.Open(ctx, nil)
 
 	if !s.isAuthenticated() {
 		// offer external authentication
@@ -157,81 +172,82 @@ func (s *inStream) handleConnecting(elem xmpp.XElement) {
 	features.AppendElement(dbBack)
 
 	s.setState(inConnected)
-	s.writeElement(features)
+	s.writeElement(ctx, features)
 }
 
-func (s *inStream) handleConnected(elem xmpp.XElement) {
+func (s *inStream) handleConnected(ctx context.Context, elem xmpp.XElement) {
 	if !s.isSecured() {
-		s.proceedStartTLS(elem)
+		s.proceedStartTLS(ctx, elem)
 		return
 	}
 	if !s.isAuthenticated() && elem.Name() == "auth" {
-		s.startAuthentication(elem)
+		s.startAuthentication(ctx, elem)
 		return
 	}
 	switch elem.Name() {
 	case "db:result":
-		s.authorizeDialbackKey(elem)
+		s.authorizeDialbackKey(ctx, elem)
 
 	case "db:verify":
-		s.verifyDialbackKey(elem)
+		s.verifyDialbackKey(ctx, elem)
 
 	default:
 		switch elem := elem.(type) {
 		case xmpp.Stanza:
-			s.processStanza(elem)
+			s.processStanza(ctx, elem)
 		}
 	}
 }
 
-func (s *inStream) processStanza(stanza xmpp.Stanza) {
+func (s *inStream) processStanza(ctx context.Context, stanza xmpp.Stanza) {
 	switch stanza := stanza.(type) {
 	case *xmpp.Presence:
-		s.processPresence(stanza)
+		s.processPresence(ctx, stanza)
 	case *xmpp.IQ:
-		s.processIQ(stanza)
+		s.processIQ(ctx, stanza)
 	case *xmpp.Message:
-		s.processMessage(stanza)
+		s.processMessage(ctx, stanza)
 	}
 }
 
-func (s *inStream) processPresence(presence *xmpp.Presence) {
+func (s *inStream) processPresence(ctx context.Context, presence *xmpp.Presence) {
 	// process roster presence
 	if presence.ToJID().IsBare() {
 		if r := s.mods.Roster; r != nil {
-			s.mods.Roster.ProcessPresence(presence)
+			r.ProcessPresence(ctx, presence)
+			return
 		}
-		return
 	}
-	_ = s.router.Route(presence)
+	_ = s.router.Route(ctx, presence)
 }
 
-func (s *inStream) processIQ(iq *xmpp.IQ) {
+func (s *inStream) processIQ(ctx context.Context, iq *xmpp.IQ) {
 	toJID := iq.ToJID()
 
-	replyOnBehalf := !toJID.IsFullWithUser() && s.router.IsLocalHost(toJID.Domain())
+	replyOnBehalf := !toJID.IsFullWithUser() && (s.router.Hosts().IsLocalHost(toJID.Domain()) ||
+		s.router.Hosts().IsConferenceHost(toJID.Domain()))
 	if !replyOnBehalf {
-		switch s.router.Route(iq) {
+		switch s.router.Route(ctx, iq) {
 		case router.ErrResourceNotFound:
-			s.writeElement(iq.ServiceUnavailableError())
+			s.writeElement(ctx, iq.ServiceUnavailableError())
 		case router.ErrFailedRemoteConnect:
-			s.writeElement(iq.RemoteServerNotFoundError())
+			s.writeElement(ctx, iq.RemoteServerNotFoundError())
 		case router.ErrBlockedJID:
 			// Destination user is a blocked JID
 			if iq.IsGet() || iq.IsSet() {
-				s.writeElement(iq.ServiceUnavailableError())
+				s.writeElement(ctx, iq.ServiceUnavailableError())
 			}
 		}
 		return
 	}
-	s.mods.ProcessIQ(iq)
+	s.mods.ProcessIQ(ctx, iq)
 }
 
-func (s *inStream) processMessage(message *xmpp.Message) {
+func (s *inStream) processMessage(ctx context.Context, message *xmpp.Message) {
 	msg := message
 
 sendMessage:
-	err := s.router.Route(msg)
+	err := s.router.Route(ctx, msg)
 	switch err {
 	case nil:
 		break
@@ -241,7 +257,7 @@ sendMessage:
 		goto sendMessage
 	case router.ErrNotAuthenticated:
 		if off := s.mods.Offline; off != nil {
-			off.ArchiveMessage(message)
+			off.ArchiveMessage(ctx, message)
 			return
 		}
 	default:
@@ -250,21 +266,21 @@ sendMessage:
 	}
 }
 
-func (s *inStream) proceedStartTLS(elem xmpp.XElement) {
+func (s *inStream) proceedStartTLS(ctx context.Context, elem xmpp.XElement) {
 	if elem.Namespace() != tlsNamespace {
-		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
+		s.disconnectWithStreamError(ctx, streamerror.ErrInvalidNamespace)
 		return
 
 	} else if elem.Name() != "starttls" {
-		s.disconnectWithStreamError(streamerror.ErrNotAuthorized)
+		s.disconnectWithStreamError(ctx, streamerror.ErrNotAuthorized)
 		return
 	}
-	s.writeElement(xmpp.NewElementNamespace("proceed", tlsNamespace))
+	s.writeElement(ctx, xmpp.NewElementNamespace("proceed", tlsNamespace))
 
-	s.cfg.transport.StartTLS(&tls.Config{
+	s.tr.StartTLS(&tls.Config{
 		ServerName:   s.localDomain,
 		ClientAuth:   tls.VerifyClientCertIfGiven,
-		Certificates: s.router.Certificates(),
+		Certificates: s.router.Hosts().Certificates(),
 	}, false)
 	atomic.StoreUint32(&s.secured, 1)
 
@@ -272,38 +288,38 @@ func (s *inStream) proceedStartTLS(elem xmpp.XElement) {
 	s.restartSession()
 }
 
-func (s *inStream) startAuthentication(elem xmpp.XElement) {
+func (s *inStream) startAuthentication(ctx context.Context, elem xmpp.XElement) {
 	if elem.Namespace() != saslNamespace {
-		s.disconnectWithStreamError(streamerror.ErrInvalidNamespace)
+		s.disconnectWithStreamError(ctx, streamerror.ErrInvalidNamespace)
 		return
 	}
 	if elem.Attributes().Get("mechanism") != "EXTERNAL" {
-		s.failAuthentication("invalid-mechanism", "")
+		s.failAuthentication(ctx, "invalid-mechanism", "")
 		return
 	}
 	// validate initiating server certificate
-	certs := s.cfg.transport.PeerCertificates()
+	certs := s.tr.PeerCertificates()
 	for _, cert := range certs {
 		for _, dnsName := range cert.DNSNames {
 			if dnsName == s.remoteDomain {
-				s.finishAuthentication()
+				s.finishAuthentication(ctx)
 				return
 			}
 		}
 	}
-	s.failAuthentication("bad-protocol", "failed to get peer certificate")
+	s.failAuthentication(ctx, "bad-protocol", "failed to get peer certificate")
 }
 
-func (s *inStream) finishAuthentication() {
+func (s *inStream) finishAuthentication(ctx context.Context) {
 	log.Infof("s2s in stream authenticated")
 	atomic.StoreUint32(&s.authenticated, 1)
 
 	success := xmpp.NewElementNamespace("success", saslNamespace)
-	s.writeElement(success)
+	s.writeElement(ctx, success)
 	s.restartSession()
 }
 
-func (s *inStream) failAuthentication(reason, text string) {
+func (s *inStream) failAuthentication(ctx context.Context, reason, text string) {
 	log.Infof("failed s2s in stream authentication: %s (text: %s)", reason, text)
 	failure := xmpp.NewElementNamespace("failure", saslNamespace)
 	failure.AppendElement(xmpp.NewElementName(reason))
@@ -312,37 +328,24 @@ func (s *inStream) failAuthentication(reason, text string) {
 		textEl.SetText(text)
 		failure.AppendElement(textEl)
 	}
-	s.writeElement(failure)
+	s.writeElement(ctx, failure)
 }
 
-func (s *inStream) authorizeDialbackKey(elem xmpp.XElement) {
-	if !s.router.IsLocalHost(elem.To()) {
-		s.writeStanzaErrorResponse(elem, xmpp.ErrItemNotFound)
+func (s *inStream) authorizeDialbackKey(ctx context.Context, elem xmpp.XElement) {
+	if !s.router.Hosts().IsLocalHost(elem.To()) {
+		s.writeStanzaErrorResponse(ctx, elem, xmpp.ErrItemNotFound)
 		return
 	}
 	log.Infof("authorizing dialback key: %s...", elem.Text())
 
-	outCfg, err := s.cfg.dialer.dial(elem.To(), elem.From())
-	if err != nil {
-		log.Error(err)
-		s.writeStanzaErrorResponse(elem, xmpp.ErrRemoteServerNotFound)
-		return
-	}
-	// create verify element
-	dbVerify := xmpp.NewElementName("db:verify")
-	dbVerify.SetID(s.sess.StreamID())
-	dbVerify.SetFrom(elem.To())
-	dbVerify.SetTo(elem.From())
-	dbVerify.SetText(elem.Text())
-	outCfg.dbVerify = dbVerify
+	// verify stream
+	outStm := s.newOut(s.router.Hosts().DefaultHostName(), elem.From())
 
-	isScionAddress, _ := rainsLookup(elem.From())
-	outStm := newOutStream(s.router, isScionAddress)
-	_ = outStm.start(outCfg)
+	verifyCh := outStm.verify(ctx, s.sess.StreamID(), elem.To(), elem.From(), elem.Text())
 
 	// wait remote server verification
 	select {
-	case valid := <-outStm.verify():
+	case valid := <-verifyCh:
 		reply := xmpp.NewElementName("db:result")
 		reply.SetFrom(elem.To())
 		reply.SetTo(elem.From())
@@ -353,19 +356,19 @@ func (s *inStream) authorizeDialbackKey(elem xmpp.XElement) {
 		} else {
 			reply.SetType("invalid")
 		}
-		s.writeElement(reply)
-		outStm.Disconnect(nil)
+		s.writeElement(ctx, reply)
+		outStm.Disconnect(ctx, nil)
 
 	case <-outStm.done():
 		// remote server closed connection unexpectedly
-		s.writeStanzaErrorResponse(elem, xmpp.ErrRemoteServerTimeout)
+		s.writeStanzaErrorResponse(ctx, elem, xmpp.ErrRemoteServerTimeout)
 		break
 	}
 }
 
-func (s *inStream) verifyDialbackKey(elem xmpp.XElement) {
-	if !s.router.IsLocalHost(elem.To()) {
-		s.writeStanzaErrorResponse(elem, xmpp.ErrItemNotFound)
+func (s *inStream) verifyDialbackKey(ctx context.Context, elem xmpp.XElement) {
+	if !s.router.Hosts().IsLocalHost(elem.To()) {
+		s.writeStanzaErrorResponse(ctx, elem, xmpp.ErrItemNotFound)
 		return
 	}
 	dbVerify := xmpp.NewElementName("db:verify")
@@ -381,94 +384,114 @@ func (s *inStream) verifyDialbackKey(elem xmpp.XElement) {
 		log.Infof("failed dialback key verification... (expected: %s, got: %s)", expectedKey, elem.Text())
 		dbVerify.SetType("invalid")
 	}
-	s.writeElement(dbVerify)
+	s.writeElement(ctx, dbVerify)
 }
 
-func (s *inStream) writeStanzaErrorResponse(elem xmpp.XElement, stanzaErr *xmpp.StanzaError) {
+func (s *inStream) writeStanzaErrorResponse(ctx context.Context, elem xmpp.XElement, stanzaErr *xmpp.StanzaError) {
 	resp := xmpp.NewElementFromElement(elem)
 	resp.SetType(xmpp.ErrorType)
 	resp.SetFrom(elem.To())
 	resp.SetTo(elem.From())
 	resp.AppendElement(stanzaErr.Element())
-	s.writeElement(resp)
+	s.writeElement(ctx, resp)
 }
 
-func (s *inStream) writeElement(elem xmpp.XElement) {
-	s.sess.Send(elem)
+func (s *inStream) writeElement(ctx context.Context, elem xmpp.XElement) {
+	if err := s.sess.Send(ctx, elem); err != nil {
+		log.Error(err)
+	}
 }
 
-func (s *inStream) readElement(elem xmpp.XElement) {
+func (s *inStream) readElement(ctx context.Context, elem xmpp.XElement) {
 	if elem != nil {
-		s.handleElement(elem)
+		s.handleElement(ctx, elem)
 	}
 	if s.getState() != inDisconnected {
 		go s.doRead()
 	}
 }
 
-func (s *inStream) handleSessionError(sErr *session.Error) {
+func (s *inStream) handleSessionError(ctx context.Context, sErr *session.Error) {
 	switch err := sErr.UnderlyingErr.(type) {
 	case nil:
-		s.disconnect(nil)
+		s.disconnect(ctx, nil)
 	case *streamerror.Error:
-		s.disconnectWithStreamError(err)
+		s.disconnectWithStreamError(ctx, err)
 	case *xmpp.StanzaError:
-		s.writeStanzaErrorResponse(sErr.Element, err)
+		s.writeStanzaErrorResponse(ctx, sErr.Element, err)
 	default:
 		log.Error(err)
-		s.disconnectWithStreamError(streamerror.ErrUndefinedCondition)
+		s.disconnectWithStreamError(ctx, streamerror.ErrUndefinedCondition)
 	}
 }
 
-func (s *inStream) disconnect(err error) {
+func (s *inStream) disconnect(ctx context.Context, err error) {
 	if s.getState() == inDisconnected {
 		return
 	}
 	switch err {
 	case nil:
-		s.disconnectClosingSession(false)
+		s.disconnectClosingSession(ctx, false)
 	default:
 		if stmErr, ok := err.(*streamerror.Error); ok {
-			s.disconnectWithStreamError(stmErr)
+			s.disconnectWithStreamError(ctx, stmErr)
 		} else {
 			log.Error(err)
-			s.disconnectClosingSession(false)
+			s.disconnectClosingSession(ctx, false)
 		}
 	}
 }
 
-func (s *inStream) disconnectWithStreamError(err *streamerror.Error) {
+func (s *inStream) disconnectWithStreamError(ctx context.Context, err *streamerror.Error) {
 	if s.getState() == inConnecting {
-		_ = s.sess.Open(nil)
+		_ = s.sess.Open(ctx, nil)
 	}
-	s.writeElement(err.Element())
-	s.disconnectClosingSession(true)
+	s.writeElement(ctx, err.Element())
+	s.disconnectClosingSession(ctx, true)
 }
 
-func (s *inStream) disconnectClosingSession(closeSession bool) {
+func (s *inStream) disconnectClosingSession(ctx context.Context, closeSession bool) {
 	if closeSession {
-		_ = s.sess.Close()
+		_ = s.sess.Close(ctx)
 	}
-	if s.cfg.onInDisconnect != nil {
-		s.cfg.onInDisconnect(s)
+	if s.cfg.onDisconnect != nil {
+		s.cfg.onDisconnect(s)
 	}
 
 	s.setState(inDisconnected)
-	_ = s.cfg.transport.Close()
+	_ = s.tr.Close()
 
 	s.runQueue.Stop(nil) // stop processing messages
 }
 
 func (s *inStream) restartSession() {
-	j, _ := jid.New("", s.cfg.localDomain, "", true)
+	j, _ := jid.New("", s.localDomain, "", true)
 	s.sess = session.New(s.id, &session.Config{
 		JID:           j,
-		Transport:     s.cfg.transport,
 		MaxStanzaSize: s.cfg.maxStanzaSize,
 		RemoteDomain:  s.remoteDomain,
 		IsServer:      true,
-	}, s.router)
+	}, s.tr, s.router.Hosts())
 	s.setState(inConnecting)
+}
+
+func (s *inStream) scheduleReadTimeout() {
+	s.mu.Lock()
+	s.readTimeoutTm = time.AfterFunc(s.cfg.keepAlive, s.readTimeout)
+	s.mu.Unlock()
+}
+
+func (s *inStream) cancelReadTimeout() {
+	s.mu.Lock()
+	s.readTimeoutTm.Stop()
+	s.mu.Unlock()
+}
+
+func (s *inStream) readTimeout() {
+	s.runQueue.Run(func() {
+		ctx, _ := context.WithTimeout(context.Background(), s.cfg.timeout)
+		s.disconnect(ctx, streamerror.ErrConnectionTimeout)
+	})
 }
 
 func (s *inStream) isSecured() bool {

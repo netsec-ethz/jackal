@@ -11,7 +11,8 @@ import (
 	"github.com/ortuman/jackal/xmpp"
 )
 
-const formNamespace = "jabber:x:data"
+// FormNamespace specifies XEP-0004 namespace constant value.
+const FormNamespace = "jabber:x:data"
 
 const (
 	// Form represents a 'form' data form.
@@ -33,18 +34,17 @@ type DataForm struct {
 	Type         string
 	Title        string
 	Instructions string
-	Fields       []Field
-	Reported     []Field
-	Items        [][]Field
+	Fields       Fields
+	Reported     Fields
+	Items        []Fields
 }
 
-// NewFormFromElement returns a new data form entity reading it
-// from it's XMPP representation.
+// NewFormFromElement returns a new data form entity reading it from it's XMPP representation.
 func NewFormFromElement(elem xmpp.XElement) (*DataForm, error) {
 	if n := elem.Name(); n != "x" {
 		return nil, fmt.Errorf("invalid form name: %s", n)
 	}
-	if ns := elem.Namespace(); ns != formNamespace {
+	if ns := elem.Namespace(); ns != FormNamespace {
 		return nil, fmt.Errorf("invalid form namespace: %s", ns)
 	}
 	typ := elem.Attributes().Get("type")
@@ -84,7 +84,7 @@ func NewFormFromElement(elem xmpp.XElement) (*DataForm, error) {
 
 // Element returns data form XMPP representation.
 func (f *DataForm) Element() xmpp.XElement {
-	elem := xmpp.NewElementNamespace("x", formNamespace)
+	elem := xmpp.NewElementNamespace("x", FormNamespace)
 	if len(f.Title) > 0 {
 		titleElem := xmpp.NewElementName("title")
 		titleElem.SetText(f.Title)

@@ -4,7 +4,7 @@ An XMPP server written in Go.
 
 This repository is a fork of [ortuman/jackal](https://github.com/ortuman/jackal) making it available for SCION/QUIC. Refer to the original repository for general usage.
 
-If you have go1.12 installed (not supporting go1.11 at the moment), you can build jackal using Makefile.
+If you have go1.13 installed (or go1.14, not tested with more up to date versions), you can build jackal using Makefile.
 ```shell
 make build
 ```
@@ -13,6 +13,7 @@ You can check if the project has built successfully by running the following com
 ```shell
 ./jackal -h
 ```
+
 ## Running jackal
 In order to run jackal, you have to specify the configuration in .yml file. An example .yml file is provided in the repository as example.jackal.yml. You need to do the following steps before you can run the server with the configuration specified in the example.jackal.yml.
 
@@ -33,8 +34,9 @@ mysql_secure_installation
 ```
 Grant right to a dedicated 'jackal' user (replace `password` with your desired password).
 
-```shell
-echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost' IDENTIFIED BY 'password';" | mysql -h localhost -u root -p
+```sh
+echo "CREATE USER IF NOT EXISTS 'jackal'@'localhost' IDENTIFIED BY 'password';" | mysql -h localhost -u root -p
+echo "GRANT ALL ON jackal.* TO 'jackal'@'localhost';" | mysql -h localhost -u root -p
 ```
 
 Create 'jackal' database (using previously created password).

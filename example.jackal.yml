@@ -18,6 +18,7 @@ storage:
     database: jackal
     pool_size: 16
 
+#storage:
 #  type: pgsql
 #  pgsql:
 #    host: 127.0.0.1:5432
@@ -26,17 +27,11 @@ storage:
 #    database: jackal
 #    pool_size: 16
 
-#  cluster:
-#  name: node1
-#  port: 5010
-#  hosts: [127.0.0.1:5009, 127.0.0.1:5011]
-
-router:
-  hosts:
-    - name: localhost
-      tls:
-        privkey_path: ""
-        cert_path: ""
+hosts:
+  - name: localhost
+    tls:
+      privkey_path: ""
+      cert_path: ""
 
 modules:
   enabled:
@@ -46,9 +41,11 @@ modules:
     - vcard            # XEP-0054: vcard-temp
     - registration     # XEP-0077: In-Band Registration
     - version          # XEP-0092: Software Version
+    - pep              # XEP-0163: Personal Eventing Protocol
     - blocking_command # XEP-0191: Blocking Command
     - ping             # XEP-0199: XMPP Ping
     - offline          # Offline storage
+    - muc              # XEP-0045: Multi-User Chat
 
   mod_roster:
     versioning: true
@@ -71,10 +68,30 @@ modules:
     send: no
     send_interval: 60
 
+  mod_muc:
+    host: conference.jackal.im
+    name: "Chatroom Server"
+    room_defaults:
+      public: true
+      persistent: true
+      password_protected: false
+      open: true
+      moderated: false
+      allow_invites: false
+      allow_subject_change: true
+      enable_logging: true
+      non_anonymous: true
+      occupant_count: -1 # -1 means don't set the limit
+      # options for the next ones are "all", "moderators" and ""
+      can_get_member_list: "all"
+      send_pm: "all"
+
 c2s:
   - id: default
 
     connect_timeout: 5
+    keep_alive: 120
+
     max_stanza_size: 65536
     resource_conflict: replace  # [override, replace, reject]
 
@@ -82,7 +99,6 @@ c2s:
       type: socket # websocket
       bind_addr: 0.0.0.0
       port: 5222
-      keep_alive: 120
       # url_path: /xmpp/ws
 
     compression:
@@ -90,17 +106,15 @@ c2s:
 
     sasl:
       - plain
-      - digest_md5
       - scram_sha_1
       - scram_sha_256
-      - scram_sha_512
 
-#s2s:
-#    dial_timeout: 15
-#    dialback_secret: s3cr3tf0rd14lb4ck
-#    max_stanza_size: 131072
-#
-#    transport:
-#      bind_addr: 0.0.0.0
-#      port: 5269
-#      keep_alive: 600
+s2s:
+    dial_timeout: 15
+    keep_alive: 600
+    dialback_secret: s3cr3tf0rd14lb4ck
+    max_stanza_size: 131072
+
+    transport:
+      bind_addr: 0.0.0.0
+      port: 5269

@@ -7,27 +7,38 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"hash"
+	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ortuman/jackal/model"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/transport/compress"
-	"github.com/ortuman/jackal/util"
+	utilstring "github.com/ortuman/jackal/util/string"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/pbkdf2"
 )
+
+func randomBytes(l int) []byte {
+	b := make([]byte, l)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
 
 type fakeTransport struct {
 	cbBytes []byte
@@ -38,6 +49,7 @@ func (ft *fakeTransport) Write(p []byte) (n int, err error)       { return 0, ni
 func (ft *fakeTransport) Close() error                            { return nil }
 func (ft *fakeTransport) Type() transport.Type                    { return transport.Socket }
 func (ft *fakeTransport) Flush() error                            { return nil }
+func (ft *fakeTransport) SetWriteDeadline(_ time.Time) error      { return nil }
 func (ft *fakeTransport) WriteString(s string) (n int, err error) { return 0, nil }
 func (ft *fakeTransport) StartTLS(*tls.Config, bool)              { return }
 func (ft *fakeTransport) EnableCompression(compress.Level)        { return }
@@ -88,21 +100,11 @@ var tt = []scramAuthTestCase{
 		password:    "1234",
 	},
 	{
-		// SCRAM-SHA-512
-		id:          3,
-		scramType:   ScramSHA512,
-		usesCb:      false,
-		gs2BindFlag: "n",
-		n:           "ortuman",
-		r:           "6d805d99-6dc3-4e5a-9a68-653856fc5129",
-		password:    "1234",
-	},
-	{
 		// SCRAM-SHA-1-PLUS
-		id:          4,
+		id:          3,
 		scramType:   ScramSHA1,
 		usesCb:      true,
-		cbBytes:     util.RandomBytes(23),
+		cbBytes:     randomBytes(23),
 		gs2BindFlag: "p=tls-unique",
 		authID:      "a=jackal.im",
 		n:           "ortuman",
@@ -111,22 +113,10 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// SCRAM-SHA-256-PLUS
-		id:          5,
+		id:          4,
 		scramType:   ScramSHA256,
 		usesCb:      true,
-		cbBytes:     util.RandomBytes(32),
-		gs2BindFlag: "p=tls-unique",
-		authID:      "a=jackal.im",
-		n:           "ortuman",
-		r:           "d712875c-bd3b-4b41-801d-eb9c541d9884",
-		password:    "1234",
-	},
-	{
-		// SCRAM-SHA-512-PLUS
-		id:          6,
-		scramType:   ScramSHA512,
-		usesCb:      true,
-		cbBytes:     util.RandomBytes(32),
+		cbBytes:     randomBytes(32),
 		gs2BindFlag: "p=tls-unique",
 		authID:      "a=jackal.im",
 		n:           "ortuman",
@@ -137,7 +127,7 @@ var tt = []scramAuthTestCase{
 	// Fail cases
 	{
 		// invalid user
-		id:          7,
+		id:          5,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "n",
@@ -148,7 +138,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// invalid password
-		id:          8,
+		id:          6,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "n",
@@ -159,7 +149,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// not authorized gs2BindFlag
-		id:          9,
+		id:          7,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "y",
@@ -170,7 +160,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// invalid authID
-		id:          10,
+		id:          8,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "n",
@@ -182,7 +172,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// not matching gs2BindFlag
-		id:          11,
+		id:          9,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "p=tls-unique",
@@ -194,7 +184,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// not matching gs2BindFlag
-		id:          12,
+		id:          10,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "q=tls-unique",
@@ -206,7 +196,7 @@ var tt = []scramAuthTestCase{
 	},
 	{
 		// empty username
-		id:          13,
+		id:          11,
 		scramType:   ScramSHA1,
 		usesCb:      false,
 		gs2BindFlag: "n",
@@ -220,54 +210,44 @@ var tt = []scramAuthTestCase{
 
 func TestScramMechanisms(t *testing.T) {
 	testTr := &fakeTransport{}
-	testStm, _ := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
-	defer authTestTeardown()
+	testStm, s := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
 
-	authr := NewScram(testStm, testTr, ScramSHA1, false)
+	authr := NewScram(testStm, testTr, ScramSHA1, false, s)
 	require.Equal(t, authr.Mechanism(), "SCRAM-SHA-1")
 	require.False(t, authr.UsesChannelBinding())
 
-	authr2 := NewScram(testStm, testTr, ScramSHA1, true)
+	authr2 := NewScram(testStm, testTr, ScramSHA1, true, s)
 	require.Equal(t, authr2.Mechanism(), "SCRAM-SHA-1-PLUS")
 	require.True(t, authr2.UsesChannelBinding())
 
-	authr3 := NewScram(testStm, testTr, ScramSHA256, false)
+	authr3 := NewScram(testStm, testTr, ScramSHA256, false, s)
 	require.Equal(t, authr3.Mechanism(), "SCRAM-SHA-256")
 	require.False(t, authr3.UsesChannelBinding())
 
-	authr4 := NewScram(testStm, testTr, ScramSHA256, true)
+	authr4 := NewScram(testStm, testTr, ScramSHA256, true, s)
 	require.Equal(t, authr4.Mechanism(), "SCRAM-SHA-256-PLUS")
 	require.True(t, authr4.UsesChannelBinding())
 
-	authr5 := NewScram(testStm, testTr, ScramSHA512, false)
-	require.Equal(t, authr5.Mechanism(), "SCRAM-SHA-512")
-	require.False(t, authr5.UsesChannelBinding())
-
-	authr6 := NewScram(testStm, testTr, ScramSHA512, true)
-	require.Equal(t, authr6.Mechanism(), "SCRAM-SHA-512-PLUS")
-	require.True(t, authr6.UsesChannelBinding())
-
-	authr7 := NewScram(testStm, testTr, ScramType(99), true)
-	require.Equal(t, authr7.Mechanism(), "")
+	authr5 := NewScram(testStm, testTr, ScramType(99), true, s)
+	require.Equal(t, authr5.Mechanism(), "")
 }
 
 func TestScramBadPayload(t *testing.T) {
 	testTr := &fakeTransport{}
-	testStm, _ := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
-	defer authTestTeardown()
+	testStm, s := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
 
-	authr := NewScram(testStm, testTr, ScramSHA1, false)
+	authr := NewScram(testStm, testTr, ScramSHA1, false, s)
 
 	auth := xmpp.NewElementNamespace("auth", "urn:ietf:params:xml:ns:xmpp-sasl")
 	auth.SetAttribute("mechanism", authr.Mechanism())
 
 	// empty auth payload
-	require.Equal(t, ErrSASLIncorrectEncoding, authr.ProcessElement(auth))
+	require.Equal(t, ErrSASLIncorrectEncoding, authr.ProcessElement(context.Background(), auth))
 
 	// incorrect auth payload encoding
 	authr.Reset()
 	auth.SetText(".")
-	require.Equal(t, ErrSASLIncorrectEncoding, authr.ProcessElement(auth))
+	require.Equal(t, ErrSASLIncorrectEncoding, authr.ProcessElement(context.Background(), auth))
 }
 
 func TestScramTestCases(t *testing.T) {
@@ -285,10 +265,9 @@ func processScramTestCase(t *testing.T, tc *scramAuthTestCase) error {
 	if tc.usesCb {
 		tr.cbBytes = tc.cbBytes
 	}
-	testStm, _ := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
-	defer authTestTeardown()
+	testStm, s := authTestSetup(&model.User{Username: "ortuman", Password: "1234"})
 
-	authr := NewScram(testStm, tr, tc.scramType, tc.usesCb)
+	authr := NewScram(testStm, tr, tc.scramType, tc.usesCb, s)
 
 	auth := xmpp.NewElementNamespace("auth", saslNamespace)
 	auth.SetAttribute("mechanism", authr.Mechanism())
@@ -298,7 +277,7 @@ func processScramTestCase(t *testing.T, tc *scramAuthTestCase) error {
 	authPayload := gs2Header + clientInitialMessage
 	auth.SetText(base64.StdEncoding.EncodeToString([]byte(authPayload)))
 
-	err := authr.ProcessElement(auth)
+	err := authr.ProcessElement(context.Background(), auth)
 	if err != nil {
 		return err
 	}
@@ -329,7 +308,7 @@ func processScramTestCase(t *testing.T, tc *scramAuthTestCase) error {
 	response := xmpp.NewElementNamespace("response", saslNamespace)
 	response.SetText(base64.StdEncoding.EncodeToString([]byte(res.clientFinalMessage)))
 
-	err = authr.ProcessElement(response)
+	err = authr.ProcessElement(context.Background(), response)
 	if err != nil {
 		return err
 	}
@@ -344,7 +323,7 @@ func processScramTestCase(t *testing.T, tc *scramAuthTestCase) error {
 	require.True(t, authr.Authenticated())
 	require.Equal(t, tc.n, authr.Username())
 
-	require.Nil(t, authr.ProcessElement(auth)) // test already authenticated...
+	require.Nil(t, authr.ProcessElement(context.Background(), auth)) // test already authenticated...
 	return nil
 }
 
@@ -378,7 +357,7 @@ func parseScramResponse(b64 string) (map[string]string, error) {
 	ret := map[string]string{}
 	s1 := strings.Split(string(s), ",")
 	for _, s0 := range s1 {
-		k, v := util.SplitKeyAndValue(s0, '=')
+		k, v := utilstring.SplitKeyAndValue(s0, '=')
 		ret[k] = v
 	}
 	return ret, nil
@@ -390,8 +369,6 @@ func testScramAuthPbkdf2(b []byte, salt []byte, scramType ScramType, iterationCo
 		return pbkdf2.Key(b, salt, iterationCount, sha1.Size, sha1.New)
 	case ScramSHA256:
 		return pbkdf2.Key(b, salt, iterationCount, sha256.Size, sha256.New)
-	case ScramSHA512:
-		return pbkdf2.Key(b, salt, iterationCount, sha512.Size, sha512.New)
 	}
 	return nil
 }
@@ -403,8 +380,6 @@ func testScramAuthHmac(b []byte, key []byte, scramType ScramType) []byte {
 		h = sha1.New
 	case ScramSHA256:
 		h = sha256.New
-	case ScramSHA512:
-		h = sha512.New
 	}
 	m := hmac.New(h, key)
 	m.Write(b)
@@ -418,8 +393,6 @@ func testScramAuthHash(b []byte, scramType ScramType) []byte {
 		h = sha1.New()
 	case ScramSHA256:
 		h = sha256.New()
-	case ScramSHA512:
-		h = sha512.New()
 	}
 	h.Write(b)
 	return h.Sum(nil)

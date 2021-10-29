@@ -12,14 +12,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ortuman/jackal/router/host"
+
 	"github.com/google/uuid"
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/router"
+	"github.com/ortuman/jackal/storage"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
 	"github.com/stretchr/testify/require"
 	yaml "gopkg.in/yaml.v2"
 )
+
+const totalModuleCount = 11
 
 type fakeModule struct {
 	shutdownCh chan bool
@@ -34,26 +40,28 @@ func (m *fakeModule) Shutdown() error {
 
 func TestModules_New(t *testing.T) {
 	mods := setupModules(t)
-	defer mods.Shutdown(context.Background())
+	defer func() { _ = mods.Shutdown(context.Background()) }()
 
-	require.Equal(t, 10, len(mods.all))
+	require.Equal(t, totalModuleCount, len(mods.all))
 }
 
 func TestModules_ProcessIQ(t *testing.T) {
 	mods := setupModules(t)
-	defer mods.Shutdown(context.Background())
+	defer func() { _ = mods.Shutdown(context.Background()) }()
 
 	j0, _ := jid.NewWithString("ortuman@jackal.im/balcony", true)
 	j1, _ := jid.NewWithString("ortuman@jackal.im/yard", true)
 
 	stm := stream.NewMockC2S(uuid.New().String(), j0)
-	mods.router.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j0.ToBareJID(), j0, xmpp.AvailableType))
+
+	mods.router.Bind(context.Background(), stm)
 
 	iqID := uuid.New().String()
 	iq := xmpp.NewIQType(iqID, xmpp.GetType)
 	iq.SetFromJID(j0)
 	iq.SetToJID(j1)
-	mods.ProcessIQ(iq)
+	mods.ProcessIQ(context.Background(), iq)
 
 	elem := stm.ReceiveElement()
 	require.NotNil(t, elem)
@@ -86,8 +94,13 @@ func setupModules(t *testing.T) *Modules {
 	err = yaml.Unmarshal(b, &config)
 	require.Nil(t, err)
 
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: "jackal.im", Certificate: tls.Certificate{}}},
-	})
-	return New(&config, r)
+	hosts, _ := host.New([]host.Config{{Name: "jackal.im", Certificate: tls.Certificate{}}})
+
+	rep, _ := storage.New(&storage.Config{Type: storage.Memory})
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(rep.User(), rep.BlockList()),
+		nil,
+	)
+	return New(&config, r, rep, "alloc-1234")
 }

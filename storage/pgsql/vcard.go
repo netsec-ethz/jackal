@@ -6,6 +6,7 @@
 package pgsql
 
 import (
+	"context"
 	"database/sql"
 	"strings"
 
@@ -13,28 +14,36 @@ import (
 	"github.com/ortuman/jackal/xmpp"
 )
 
-// InsertOrUpdateVCard inserts a new vCard element into storage,
-// or updates it in case it's been previously inserted.
-func (s *Storage) InsertOrUpdateVCard(vCard xmpp.XElement, username string) error {
+type pgSQLVCard struct {
+	*pgSQLStorage
+}
+
+func newVCard(db *sql.DB) *pgSQLVCard {
+	return &pgSQLVCard{
+		pgSQLStorage: newStorage(db),
+	}
+}
+
+// UpsertVCard inserts a new vCard element into storage, or updates it in case it's been previously inserted.
+func (s *pgSQLVCard) UpsertVCard(ctx context.Context, vCard xmpp.XElement, username string) error {
 	rawXML := vCard.String()
 
 	q := sq.Insert("vcards").
 		Columns("username", "vcard").
 		Values(username, rawXML).
-		Suffix("ON CONFLICT (username) DO UPDATE SET vcard = ?", rawXML)
+		Suffix("ON CONFLICT (username) DO UPDATE SET vcard = $3", rawXML)
 
-	_, err := q.RunWith(s.db).Exec()
+	_, err := q.RunWith(s.db).ExecContext(ctx)
 	return err
 }
 
-// FetchVCard retrieves from storage a vCard element associated
-// to a given user.
-func (s *Storage) FetchVCard(username string) (xmpp.XElement, error) {
+// FetchVCard retrieves from storage a vCard element associated to a given user.
+func (s *pgSQLVCard) FetchVCard(ctx context.Context, username string) (xmpp.XElement, error) {
 	q := sq.Select("vcard").From("vcards").Where(sq.Eq{"username": username})
 
 	var vCard string
 
-	err := q.RunWith(s.db).QueryRow().Scan(&vCard)
+	err := q.RunWith(s.db).QueryRowContext(ctx).Scan(&vCard)
 
 	switch err {
 	case nil:

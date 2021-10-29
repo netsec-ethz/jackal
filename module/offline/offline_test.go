@@ -6,13 +6,16 @@
 package offline
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 	"time"
 
+	"github.com/ortuman/jackal/router/host"
+
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -21,28 +24,29 @@ import (
 )
 
 func TestOffline_ArchiveMessage(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	j1, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 	j2, _ := jid.New("juliet", "jackal.im", "garden", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j1)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j1, j1, xmpp.AvailableType))
 
-	x := New(&Config{QueueSize: 1}, nil, r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(&Config{QueueSize: 1}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	msgID := uuid.New()
 	msg := xmpp.NewMessageType(msgID, "normal")
 	msg.SetFromJID(j1)
 	msg.SetToJID(j2)
-	x.ArchiveMessage(msg)
+	x.ArchiveMessage(context.Background(), msg)
 
 	// wait for insertion...
 	time.Sleep(time.Millisecond * 250)
 
-	msgs, err := storage.FetchOfflineMessages("juliet")
+	msgs, err := s.FetchOfflineMessages(context.Background(), "juliet")
 	require.Nil(t, err)
 	require.Equal(t, 1, len(msgs))
 
@@ -50,7 +54,7 @@ func TestOffline_ArchiveMessage(t *testing.T) {
 	msg2.SetFromJID(j1)
 	msg2.SetToJID(j2)
 
-	x.ArchiveMessage(msg)
+	x.ArchiveMessage(context.Background(), msg)
 
 	elem := stm.ReceiveElement()
 	require.NotNil(t, elem)
@@ -58,25 +62,28 @@ func TestOffline_ArchiveMessage(t *testing.T) {
 
 	// deliver offline messages...
 	stm2 := stream.NewMockC2S("abcd", j2)
-	r.Bind(stm2)
+	stm2.SetPresence(xmpp.NewPresence(j2, j2, xmpp.AvailableType))
 
-	x2 := New(&Config{QueueSize: 1}, nil, r)
-	defer x2.Shutdown()
+	r.Bind(context.Background(), stm2)
 
-	x2.DeliverOfflineMessages(stm2)
+	x2 := New(&Config{QueueSize: 1}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
+
+	x2.DeliverOfflineMessages(context.Background(), stm2)
 
 	elem = stm2.ReceiveElement()
 	require.NotNil(t, elem)
 	require.Equal(t, msgID, elem.ID())
 }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, *memorystorage.Offline) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+
+	s := memorystorage.NewOffline()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(memorystorage.NewUser(), memorystorage.NewBlockList()),
+		nil,
+	)
+	return r, s
 }

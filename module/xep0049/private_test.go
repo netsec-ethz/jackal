@@ -6,12 +6,16 @@
 package xep0049
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
+	"github.com/ortuman/jackal/router/host"
+
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -24,10 +28,10 @@ func TestXEP0049_Matching(t *testing.T) {
 	j2, _ := jid.New("romeo", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S("abcd", j1)
-	defer stm.Disconnect(nil)
+	defer stm.Disconnect(context.Background(), nil)
 
-	x := New(nil)
-	defer x.Shutdown()
+	x := New(nil, nil)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq.SetFromJID(j1)
@@ -39,17 +43,18 @@ func TestXEP0049_Matching(t *testing.T) {
 }
 
 func TestXEP0049_InvalidIQ(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	j1, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 	j2, _ := jid.New("romeo", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S("abcd", j1)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j1, j1, xmpp.AvailableType))
 
-	x := New(r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq.SetFromJID(j1)
@@ -57,52 +62,53 @@ func TestXEP0049_InvalidIQ(t *testing.T) {
 	q := xmpp.NewElementNamespace("query", privateNamespace)
 	iq.AppendElement(q)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrForbidden.Error(), elem.Error().Elements().All()[0].Name())
 
 	iq.SetType(xmpp.ResultType)
 	iq.SetToJID(j1.ToBareJID())
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	iq.SetType(xmpp.GetType)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAcceptable.Error(), elem.Error().Elements().All()[0].Name())
 
 	exodus := xmpp.NewElementNamespace("exodus", "exodus:ns")
 	exodus.AppendElement(xmpp.NewElementName("exodus2"))
 	q.AppendElement(exodus)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAcceptable.Error(), elem.Error().Elements().All()[0].Name())
 
 	exodus.ClearElements()
 	exodus.SetNamespace("jabber:client")
 	iq.SetType(xmpp.SetType)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAcceptable.Error(), elem.Error().Elements().All()[0].Name())
 
 	exodus.SetNamespace("")
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 }
 
 func TestXEP0049_SetAndGetPrivate(t *testing.T) {
-	r, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S("abcd", j)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j, j, xmpp.AvailableType))
 
-	x := New(r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iqID := uuid.New()
 	iq := xmpp.NewIQType(iqID, xmpp.SetType)
@@ -117,14 +123,14 @@ func TestXEP0049_SetAndGetPrivate(t *testing.T) {
 	q.AppendElement(exodus2)
 
 	// set error
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
 	// set success
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 	require.Equal(t, iqID, elem.ID())
@@ -133,14 +139,14 @@ func TestXEP0049_SetAndGetPrivate(t *testing.T) {
 	q.RemoveElements("exodus2")
 	iq.SetType(xmpp.GetType)
 
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
 	// get success
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 	require.Equal(t, iqID, elem.ID())
@@ -151,7 +157,7 @@ func TestXEP0049_SetAndGetPrivate(t *testing.T) {
 
 	// get non existing
 	exodus1.SetNamespace("exodus:ns:2")
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 	require.Equal(t, iqID, elem.ID())
@@ -160,13 +166,13 @@ func TestXEP0049_SetAndGetPrivate(t *testing.T) {
 	require.Equal(t, "exodus:ns:2", q3.Elements().All()[0].Namespace())
 }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, repository.Private) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+	s := memorystorage.NewPrivate()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(memorystorage.NewUser(), memorystorage.NewBlockList()),
+		nil,
+	)
+	return r, s
 }

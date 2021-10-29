@@ -10,6 +10,7 @@ import (
 
 	"github.com/ortuman/jackal/module/offline"
 	"github.com/ortuman/jackal/module/roster"
+	"github.com/ortuman/jackal/module/xep0045"
 	"github.com/ortuman/jackal/module/xep0077"
 	"github.com/ortuman/jackal/module/xep0092"
 	"github.com/ortuman/jackal/module/xep0199"
@@ -23,6 +24,7 @@ type Config struct {
 	Registration xep0077.Config
 	Version      xep0092.Config
 	Ping         xep0199.Config
+	Muc          xep0045.Config
 }
 
 type configProxy struct {
@@ -32,6 +34,7 @@ type configProxy struct {
 	Registration xep0077.Config `yaml:"mod_registration"`
 	Version      xep0092.Config `yaml:"mod_version"`
 	Ping         xep0199.Config `yaml:"mod_ping"`
+	Muc          xep0045.Config `yaml:"mod_muc"`
 }
 
 // UnmarshalYAML satisfies Unmarshaler interface.
@@ -44,8 +47,8 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	enabled := make(map[string]struct{}, len(p.Enabled))
 	for _, mod := range p.Enabled {
 		switch mod {
-		case "roster", "last_activity", "private", "vcard", "registration", "version", "blocking_command",
-			"ping", "offline":
+		case "roster", "last_activity", "private", "vcard", "registration", "pep", "version", "blocking_command",
+			"ping", "offline", "muc":
 			break
 		default:
 			return fmt.Errorf("module.Config: unrecognized module: %s", mod)
@@ -58,5 +61,6 @@ func (cfg *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	cfg.Registration = p.Registration
 	cfg.Version = p.Version
 	cfg.Ping = p.Ping
+	cfg.Muc = p.Muc
 	return nil
 }

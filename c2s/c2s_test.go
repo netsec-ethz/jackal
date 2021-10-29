@@ -15,11 +15,13 @@ import (
 	"testing"
 	"time"
 
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/component"
 	"github.com/ortuman/jackal/module"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	"github.com/ortuman/jackal/router/host"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/stretchr/testify/require"
 )
@@ -47,8 +49,8 @@ func (frw *fakeSockReaderWriter) Read(b []byte) (n int, err error) {
 }
 
 func (frw *fakeSockReaderWriter) Close() error {
-	frw.w.Close()
-	frw.r.Close()
+	_ = frw.w.Close()
+	_ = frw.r.Close()
 	return nil
 }
 
@@ -92,8 +94,8 @@ func (c *fakeSocketConn) Write(b []byte) (n int, err error) {
 
 func (c *fakeSocketConn) Close() error {
 	if atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
-		c.wr.Close()
-		c.rd.Close()
+		_ = c.wr.Close()
+		_ = c.rd.Close()
 		close(c.closeCh)
 		return nil
 	}
@@ -135,7 +137,7 @@ func (c *fakeSocketConn) loop() {
 	for {
 		select {
 		case b := <-c.wrCh:
-			c.wr.Write(b)
+			_, _ = c.wr.Write(b)
 		case <-c.closeCh:
 			return
 		}
@@ -152,15 +154,17 @@ var (
 func (a fakeAddr) Network() string { return "net" }
 func (a fakeAddr) String() string  { return "str" }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, repository.User, repository.BlockList) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+
+	userRep := memorystorage.NewUser()
+	blockListRep := memorystorage.NewBlockList()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(userRep, blockListRep),
+		nil,
+	)
+	return r, userRep, blockListRep
 }
 
 type fakeC2SServer struct {
@@ -185,7 +189,7 @@ func (s *fakeC2SServer) shutdown(ctx context.Context) error {
 }
 
 func TestC2S_StartAndShutdown(t *testing.T) {
-	c2s, fakeSrv := setupTestC2S()
+	c2s, fakeSrv := setupTestC2S("localhost")
 
 	c2s.Start()
 	select {
@@ -204,11 +208,22 @@ func TestC2S_StartAndShutdown(t *testing.T) {
 	}
 }
 
-func setupTestC2S() (*C2S, *fakeC2SServer) {
+func setupTestC2S(domain string) (*C2S, *fakeC2SServer) {
 	srv := newFakeC2SServer()
-	createC2SServer = func(_ *Config, _ *module.Modules, _ *component.Components, _ *router.Router) c2sServer {
+	createC2SServer = func(_ *Config, _ *module.Modules, _ *component.Components, _ router.Router, _ repository.User, _ repository.BlockList) c2sServer {
 		return srv
 	}
-	c2s, _ := New([]Config{{}}, &module.Modules{}, &component.Components{}, &router.Router{})
+
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+
+	userRep := memorystorage.NewUser()
+	blockListRep := memorystorage.NewBlockList()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(userRep, blockListRep),
+		nil,
+	)
+
+	c2s, _ := New([]Config{{}}, &module.Modules{}, &component.Components{}, r, userRep, blockListRep)
 	return c2s, srv
 }

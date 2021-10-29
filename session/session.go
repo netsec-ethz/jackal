@@ -6,8 +6,8 @@
 package session
 
 import (
+	"context"
 	stdxml "encoding/xml"
-	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -16,7 +16,7 @@ import (
 
 	streamerror "github.com/ortuman/jackal/errors"
 	"github.com/ortuman/jackal/log"
-	"github.com/ortuman/jackal/router"
+	"github.com/ortuman/jackal/router/host"
 	"github.com/ortuman/jackal/transport"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -51,10 +51,6 @@ type Config struct {
 	// JID defines an initial session JID.
 	JID *jid.JID
 
-	// Transport provides the underlying session transport
-	// that will be used to send and received elements.
-	Transport transport.Transport
-
 	// MaxStanzaSize defines the maximum stanza size that
 	// can be read from the session transport.
 	MaxStanzaSize int
@@ -74,7 +70,7 @@ type Config struct {
 // Session represents an XMPP session between the two peers.
 type Session struct {
 	id           string
-	router       *router.Router
+	hosts        *host.Hosts
 	tr           transport.Transport
 	pr           *xmpp.Parser
 	remoteDomain string
@@ -89,19 +85,17 @@ type Session struct {
 }
 
 // New creates a new session instance.
-func New(id string, config *Config, router *router.Router) *Session {
+func New(id string, config *Config, tr transport.Transport, hosts *host.Hosts) *Session {
 	var parsingMode xmpp.ParsingMode
-	switch config.Transport.Type() {
+	switch tr.Type() {
 	case transport.Socket:
 		parsingMode = xmpp.SocketStream
-	case transport.WebSocket:
-		parsingMode = xmpp.WebSocketStream
 	}
 	s := &Session{
 		id:           id,
-		router:       router,
-		tr:           config.Transport,
-		pr:           xmpp.NewParser(config.Transport, parsingMode, config.MaxStanzaSize),
+		hosts:        hosts,
+		tr:           tr,
+		pr:           xmpp.NewParser(tr, parsingMode, config.MaxStanzaSize),
 		remoteDomain: config.RemoteDomain,
 		isServer:     config.IsServer,
 		isInitiating: config.IsInitiating,
@@ -135,7 +129,7 @@ func (s *Session) SetRemoteDomain(remoteDomain string) {
 }
 
 // Open initializes a sending the proper XMPP payload.
-func (s *Session) Open(featuresElem xmpp.XElement) error {
+func (s *Session) Open(ctx context.Context, featuresElem xmpp.XElement) error {
 	if !atomic.CompareAndSwapUint32(&s.opened, 0, 1) {
 		return errors.New("session already opened")
 	}
@@ -153,11 +147,6 @@ func (s *Session) Open(featuresElem xmpp.XElement) error {
 		}
 		buf.WriteString(`<?xml version="1.0"?>`)
 
-	case transport.WebSocket:
-		ops = xmpp.NewElementName("open")
-		ops.SetAttribute("xmlns", framedStreamNamespace)
-		includeClosing = true
-
 	default:
 		return nil
 	}
@@ -173,46 +162,60 @@ func (s *Session) Open(featuresElem xmpp.XElement) error {
 		s.mu.RUnlock()
 	}
 	ops.SetAttribute("version", "1.0")
-	ops.ToXML(buf, includeClosing)
+	if err := ops.ToXML(buf, includeClosing); err != nil {
+		return err
+	}
 
 	if featuresElem != nil {
-		featuresElem.ToXML(buf, true)
+		if err := featuresElem.ToXML(buf, true); err != nil {
+			return err
+		}
 	}
 	openStr := buf.String()
 	log.Debugf("SEND(%s): %s", s.id, openStr)
 
+	s.setWriteDeadline(ctx)
+
 	_, err := io.Copy(s.tr, strings.NewReader(openStr))
-	_ = s.tr.Flush()
-	return err
+	if err != nil {
+		return err
+	}
+	return s.tr.Flush()
 }
 
 // Close closes session sending the proper XMPP payload.
 // Is responsibility of the caller to close underlying transport.
-func (s *Session) Close() error {
+func (s *Session) Close(ctx context.Context) error {
 	if atomic.LoadUint32(&s.opened) == 0 {
 		return errors.New("session already closed")
 	}
+	s.setWriteDeadline(ctx)
+
+	var err error
 	switch s.tr.Type() {
 	case transport.Socket:
-		io.WriteString(s.tr, "</stream:stream>")
-	case transport.WebSocket:
-		io.WriteString(s.tr, fmt.Sprintf(`<close xmlns="%s" />`, framedStreamNamespace))
+		_, err = io.WriteString(s.tr, "</stream:stream>")
 	}
-	_ = s.tr.Flush()
-
-	return nil
+	if err != nil {
+		return err
+	}
+	return s.tr.Flush()
 }
 
 // Send writes an XML element to the underlying session transport.
-func (s *Session) Send(elem xmpp.XElement) {
+func (s *Session) Send(ctx context.Context, elem xmpp.XElement) error {
 	// clear namespace if sending a stanza
 	if e, ok := elem.(namespaceSettable); elem.IsStanza() && ok {
 		e.SetNamespace("")
 	}
 	log.Debugf("SEND(%s): %v", s.id, elem)
 
-	elem.ToXML(s.tr, true)
-	_ = s.tr.Flush()
+	s.setWriteDeadline(ctx)
+
+	if err := elem.ToXML(s.tr, true); err != nil {
+		return err
+	}
+	return s.tr.Flush()
 }
 
 // Receive returns next incoming session element.
@@ -243,6 +246,14 @@ func (s *Session) Receive() (xmpp.XElement, *Error) {
 		}
 	}
 	return elem, nil
+}
+
+func (s *Session) setWriteDeadline(ctx context.Context) {
+	d, ok := ctx.Deadline()
+	if !ok {
+		return
+	}
+	_ = s.tr.SetWriteDeadline(d)
 }
 
 func (s *Session) buildStanza(elem xmpp.XElement) (xmpp.Stanza, *Error) {
@@ -340,17 +351,9 @@ func (s *Session) validateStreamElement(elem xmpp.XElement) *Error {
 		if elem.Namespace() != s.namespace() || elem.Attributes().Get("xmlns:stream") != streamNamespace {
 			return &Error{UnderlyingErr: streamerror.ErrInvalidNamespace}
 		}
-
-	case transport.WebSocket:
-		if elem.Name() != "open" {
-			return &Error{UnderlyingErr: streamerror.ErrUnsupportedStanzaType}
-		}
-		if elem.Namespace() != framedStreamNamespace {
-			return &Error{UnderlyingErr: streamerror.ErrInvalidNamespace}
-		}
 	}
 	to := elem.To()
-	if len(to) > 0 && !s.router.IsLocalHost(to) {
+	if len(to) > 0 && !s.hosts.IsLocalHost(to) {
 		return &Error{UnderlyingErr: streamerror.ErrHostUnknown}
 	}
 	if elem.Version() != "1.0" {
@@ -386,7 +389,7 @@ func (s *Session) mapErrorToSessionError(err error) *Error {
 		break
 
 	case xmpp.ErrStreamClosedByPeer:
-		s.Close()
+		_ = s.Close(context.Background())
 
 	case xmpp.ErrTooLargeStanza:
 		return &Error{UnderlyingErr: streamerror.ErrPolicyViolation}

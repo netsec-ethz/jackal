@@ -6,13 +6,17 @@
 package xep0030
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
+	"github.com/ortuman/jackal/router/host"
+
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/module/xep0004"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
+	"github.com/ortuman/jackal/storage/repository"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -21,13 +25,12 @@ import (
 )
 
 func TestXEP0030_Matching(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
-	x := New(r)
-	defer x.Shutdown()
+	x := New(r, rosterRep)
+	defer func() { _ = x.Shutdown() }()
 
 	// test MatchesIQ
 	iq1 := xmpp.NewIQType(uuid.New(), xmpp.GetType)
@@ -54,17 +57,18 @@ func TestXEP0030_Matching(t *testing.T) {
 }
 
 func TestXEP0030_SendFeatures(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 	srvJid, _ := jid.New("", "jackal.im", "", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j, j, xmpp.AvailableType))
 
-	x := New(r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(r, rosterRep)
+	defer func() { _ = x.Shutdown() }()
 
 	x.RegisterServerFeature("s0")
 	x.RegisterServerFeature("s1")
@@ -77,7 +81,7 @@ func TestXEP0030_SendFeatures(t *testing.T) {
 	iq1.SetToJID(srvJid)
 	iq1.AppendElement(xmpp.NewElementNamespace("query", discoInfoNamespace))
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem := stm.ReceiveElement()
 	require.NotNil(t, elem)
 	q := elem.Elements().ChildNamespace("query", discoInfoNamespace)
@@ -90,7 +94,7 @@ func TestXEP0030_SendFeatures(t *testing.T) {
 	x.UnregisterServerFeature("s1")
 	x.UnregisterAccountFeature("af1")
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem = stm.ReceiveElement()
 	q = elem.Elements().ChildNamespace("query", discoInfoNamespace)
 
@@ -98,7 +102,7 @@ func TestXEP0030_SendFeatures(t *testing.T) {
 	require.Equal(t, 5, q.Elements().Count())
 
 	iq1.SetToJID(j.ToBareJID())
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem = stm.ReceiveElement()
 	q = elem.Elements().ChildNamespace("query", discoInfoNamespace)
 
@@ -107,23 +111,24 @@ func TestXEP0030_SendFeatures(t *testing.T) {
 }
 
 func TestXEP0030_SendItems(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j, j, xmpp.AvailableType))
 
-	x := New(r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(r, rosterRep)
+	defer func() { _ = x.Shutdown() }()
 
 	iq1 := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq1.SetFromJID(j)
 	iq1.SetToJID(j.ToBareJID())
 	iq1.AppendElement(xmpp.NewElementNamespace("query", discoItemsNamespace))
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem := stm.ReceiveElement()
 	require.NotNil(t, elem)
 	q := elem.Elements().ChildNamespace("query", discoItemsNamespace)
@@ -134,48 +139,49 @@ func TestXEP0030_SendItems(t *testing.T) {
 type testDiscoInfoProvider struct {
 }
 
-func (tp *testDiscoInfoProvider) Identities(toJID, fromJID *jid.JID, node string) []Identity {
+func (tp *testDiscoInfoProvider) Identities(_ context.Context, toJID, fromJID *jid.JID, node string) []Identity {
 	return []Identity{{Name: "test_identity"}}
 }
 
-func (tp *testDiscoInfoProvider) Items(toJID, fromJID *jid.JID, node string) ([]Item, *xmpp.StanzaError) {
+func (tp *testDiscoInfoProvider) Items(_ context.Context, toJID, fromJID *jid.JID, node string) ([]Item, *xmpp.StanzaError) {
 	return []Item{{Jid: "test.jackal.im"}}, nil
 }
 
-func (tp *testDiscoInfoProvider) Features(toJID, fromJID *jid.JID, node string) ([]Feature, *xmpp.StanzaError) {
+func (tp *testDiscoInfoProvider) Features(_ context.Context, toJID, fromJID *jid.JID, node string) ([]Feature, *xmpp.StanzaError) {
 	return []Feature{"com.jackal.im.feature"}, nil
 }
 
-func (tp *testDiscoInfoProvider) Form(toJID, fromJID *jid.JID, node string) (*xep0004.DataForm, *xmpp.StanzaError) {
+func (tp *testDiscoInfoProvider) Form(_ context.Context, toJID, fromJID *jid.JID, node string) (*xep0004.DataForm, *xmpp.StanzaError) {
 	return nil, nil
 }
 
 func TestXEP0030_Provider(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, rosterRep := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 	compJID, _ := jid.New("", "test.jackal.im", "", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	stm.SetPresence(xmpp.NewPresence(j, j, xmpp.AvailableType))
 
-	x := New(r)
-	defer x.Shutdown()
+	r.Bind(context.Background(), stm)
+
+	x := New(r, rosterRep)
+	defer func() { _ = x.Shutdown() }()
 
 	iq1 := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq1.SetFromJID(j)
 	iq1.SetToJID(compJID)
 	iq1.AppendElement(xmpp.NewElementNamespace("query", discoItemsNamespace))
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem := stm.ReceiveElement()
 	require.True(t, elem.IsError())
 	require.Equal(t, xmpp.ErrItemNotFound.Error(), elem.Error().Elements().All()[0].Name())
 
 	x.RegisterProvider(compJID.String(), &testDiscoInfoProvider{})
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem = stm.ReceiveElement()
 	q := elem.Elements().ChildNamespace("query", discoItemsNamespace)
 	require.NotNil(t, q)
@@ -184,19 +190,19 @@ func TestXEP0030_Provider(t *testing.T) {
 
 	x.UnregisterProvider(compJID.String())
 
-	x.ProcessIQ(iq1)
+	x.ProcessIQ(context.Background(), iq1)
 	elem = stm.ReceiveElement()
 	require.True(t, elem.IsError())
 	require.Equal(t, xmpp.ErrItemNotFound.Error(), elem.Error().Elements().All()[0].Name())
 }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, repository.Roster) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+	rosterRep := memorystorage.NewRoster()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(memorystorage.NewUser(), memorystorage.NewBlockList()),
+		nil,
+	)
+	return r, rosterRep
 }

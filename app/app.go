@@ -16,23 +16,31 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ortuman/jackal/c2s"
-	"github.com/ortuman/jackal/cluster"
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/component"
 	"github.com/ortuman/jackal/log"
 	"github.com/ortuman/jackal/module"
 	"github.com/ortuman/jackal/router"
+	"github.com/ortuman/jackal/router/host"
 	"github.com/ortuman/jackal/s2s"
+	s2srouter "github.com/ortuman/jackal/s2s/router"
 	"github.com/ortuman/jackal/storage"
 	"github.com/ortuman/jackal/version"
 	"github.com/pkg/errors"
 )
 
 const (
+	envAllocationID = "JACKAL_ALLOCATION_ID"
+
+	darwinOpenMax = 10240
+
 	defaultShutDownWaitTime = time.Duration(5) * time.Second
 )
 
@@ -60,11 +68,10 @@ type Application struct {
 	output           io.Writer
 	args             []string
 	logger           log.Logger
-	storage          storage.Storage
-	cluster          *cluster.Cluster
-	router           *router.Router
+	router           router.Router
 	mods             *module.Modules
 	comps            *component.Components
+	s2sOutProvider   *s2s.OutProvider
 	s2s              *s2s.S2S
 	c2s              *c2s.C2S
 	debugSrv         *http.Server
@@ -100,11 +107,11 @@ func (a *Application) Run() error {
 	fs.StringVar(&configFile, "c", "/etc/jackal/jackal.yml", "Configuration file path.")
 	fs.Usage = func() {
 		for i := range logoStr {
-			fmt.Fprintf(a.output, "%s\n", logoStr[i])
+			_, _ = fmt.Fprintf(a.output, "%s\n", logoStr[i])
 		}
-		fmt.Fprintf(a.output, "%s\n", usageStr)
+		_, _ = fmt.Fprintf(a.output, "%s\n", usageStr)
 	}
-	fs.Parse(a.args[1:])
+	_ = fs.Parse(a.args[1:])
 
 	// print usage
 	if showUsage {
@@ -113,7 +120,7 @@ func (a *Application) Run() error {
 	}
 	// print version
 	if showVersion {
-		fmt.Fprintf(a.output, "jackal version: %v\n", version.ApplicationVersion)
+		_, _ = fmt.Fprintf(a.output, "jackal version: %v\n", version.ApplicationVersion)
 		return nil
 	}
 	// load configuration
@@ -122,62 +129,70 @@ func (a *Application) Run() error {
 	if err != nil {
 		return err
 	}
+
 	// create PID file
 	if err := a.createPIDFile(cfg.PIDFile); err != nil {
 		return err
 	}
-
 	// initialize logger
 	err = a.initLogger(&cfg.Logger, a.output)
 	if err != nil {
 		return err
 	}
 
+	// set allocation identifier
+	allocID := os.Getenv(envAllocationID)
+	if len(allocID) == 0 {
+		allocID = uuid.New().String()
+	}
+
 	// show jackal's fancy logo
-	a.printLogo()
+	a.printLogo(allocID)
 
 	// initialize storage
-	err = a.initStorage(&cfg.Storage)
+	repContainer, err := storage.New(&cfg.Storage)
 	if err != nil {
 		return err
 	}
+	if err := repContainer.Presences().ClearPresences(context.Background()); err != nil {
+		return err
+	}
 
+	// initialize hosts
+	hosts, err := host.New(cfg.Hosts)
+	if err != nil {
+		return err
+	}
 	// initialize router
-	a.router, err = router.New(&cfg.Router)
+	var s2sRouter router.S2SRouter
+
+	if cfg.S2S != nil {
+		a.s2sOutProvider = s2s.NewOutProvider(cfg.S2S, hosts)
+		s2sRouter = s2srouter.New(a.s2sOutProvider)
+	}
+	a.router, err = router.New(
+		hosts,
+		c2srouter.New(repContainer.User(), repContainer.BlockList()),
+		s2sRouter,
+	)
 	if err != nil {
 		return err
-	}
-
-	// initialize cluster
-	if cfg.Cluster != nil {
-		if storage.IsClusterCompatible() {
-			a.cluster, err = cluster.New(cfg.Cluster, a.router.ClusterDelegate())
-			if err != nil {
-				return err
-			}
-			if a.cluster != nil {
-				a.router.SetCluster(a.cluster)
-				if err := a.cluster.Join(); err != nil {
-					log.Warnf("%v", err)
-				}
-			}
-		} else {
-			log.Warnf("cluster mode disabled: storage type '%s' is not compatible", cfg.Storage.Type)
-		}
 	}
 
 	// initialize modules & components...
-	a.mods = module.New(&cfg.Modules, a.router)
+	a.mods = module.New(&cfg.Modules, a.router, repContainer, allocID)
 	a.comps = component.New(&cfg.Components, a.mods.DiscoInfo)
 
 	// start serving s2s...
-	a.s2s = s2s.New(cfg.S2S, a.mods, a.router)
-	if a.s2s != nil {
-		a.router.SetOutS2SProvider(a.s2s)
+	if err := a.setRLimit(); err != nil {
+		return err
+	}
+	if cfg.S2S != nil {
+		a.s2s = s2s.New(cfg.S2S, a.mods, a.s2sOutProvider, a.router)
 		a.s2s.Start()
 	}
 	// start serving c2s...
-	a.c2s, err = c2s.New(cfg.C2S, a.mods, a.comps, a.router)
+	a.c2s, err = c2s.New(cfg.C2S, a.mods, a.comps, a.router, repContainer.User(), repContainer.BlockList())
 	if err != nil {
 		return err
 	}
@@ -198,7 +213,7 @@ func (a *Application) Run() error {
 }
 
 func (a *Application) showVersion() {
-	fmt.Fprintf(a.output, "jackal version: %v\n", version.ApplicationVersion)
+	_, _ = fmt.Fprintf(a.output, "jackal version: %v\n", version.ApplicationVersion)
 }
 
 func (a *Application) createPIDFile(pidFile string) error {
@@ -212,7 +227,7 @@ func (a *Application) createPIDFile(pidFile string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	currentPid := os.Getpid()
 	if _, err := file.WriteString(strconv.FormatInt(int64(currentPid), 10)); err != nil {
@@ -243,22 +258,32 @@ func (a *Application) initLogger(config *loggerConfig, output io.Writer) error {
 	return nil
 }
 
-func (a *Application) initStorage(config *storage.Config) error {
-	s, err := storage.New(config)
-	if err != nil {
-		return err
-	}
-	a.storage = s
-	storage.Set(a.storage)
-	return nil
-}
-
-func (a *Application) printLogo() {
+func (a *Application) printLogo(allocID string) {
 	for i := range logoStr {
 		log.Infof("%s", logoStr[i])
 	}
 	log.Infof("")
-	log.Infof("jackal %v\n", version.ApplicationVersion)
+	log.Infof("jackal %v - allocation_id: %s\n", version.ApplicationVersion, allocID)
+}
+
+func (a *Application) setRLimit() error {
+	var rLim syscall.Rlimit
+	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLim); err != nil {
+		return err
+	}
+	if rLim.Cur < rLim.Max {
+		switch runtime.GOOS {
+		case "darwin":
+			// The max file limit is 10240, even though
+			// the max returned by Getrlimit is 1<<63-1.
+			// This is OPEN_MAX in sys/syslimits.h.
+			rLim.Cur = darwinOpenMax
+		default:
+			rLim.Cur = rLim.Max
+		}
+		return syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLim)
+	}
+	return nil
 }
 
 func (a *Application) initDebugServer(port int) error {
@@ -267,7 +292,7 @@ func (a *Application) initDebugServer(port int) error {
 	if err != nil {
 		return err
 	}
-	go a.debugSrv.Serve(ln)
+	go func() { _ = a.debugSrv.Serve(ln) }()
 	log.Infof("debug server listening at %d...", port)
 	return nil
 }
@@ -293,22 +318,34 @@ func (a *Application) gracefullyShutdown() error {
 func (a *Application) shutdown(ctx context.Context) <-chan bool {
 	c := make(chan bool, 1)
 	go func() {
-		if a.debugSrv != nil {
-			a.debugSrv.Shutdown(ctx)
+		if err := a.doShutdown(ctx); err != nil {
+			log.Warnf("failed to shutdown: %s", err)
 		}
-		a.c2s.Shutdown(ctx)
-		if a.s2s != nil {
-			a.s2s.Shutdown(ctx)
-		}
-		if a.cluster != nil {
-			a.cluster.Shutdown()
-		}
-		a.comps.Shutdown(ctx)
-		a.mods.Shutdown(ctx)
-
-		storage.Unset()
-		log.Unset()
 		c <- true
 	}()
 	return c
+}
+
+func (a *Application) doShutdown(ctx context.Context) error {
+	if a.debugSrv != nil {
+		if err := a.debugSrv.Shutdown(ctx); err != nil {
+			return err
+		}
+	}
+	a.c2s.Shutdown(ctx)
+
+	if err := a.comps.Shutdown(ctx); err != nil {
+		return err
+	}
+	if err := a.mods.Shutdown(ctx); err != nil {
+		return err
+	}
+
+	if outProvider := a.s2sOutProvider; outProvider != nil {
+		if err := outProvider.Shutdown(ctx); err != nil {
+			return err
+		}
+	}
+	log.Unset()
+	return nil
 }

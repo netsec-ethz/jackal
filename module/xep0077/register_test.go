@@ -6,13 +6,16 @@
 package xep0077
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
+	"github.com/ortuman/jackal/router/host"
+
+	c2srouter "github.com/ortuman/jackal/c2s/router"
 	"github.com/ortuman/jackal/model"
 	"github.com/ortuman/jackal/router"
-	"github.com/ortuman/jackal/storage"
-	"github.com/ortuman/jackal/storage/memstorage"
+	memorystorage "github.com/ortuman/jackal/storage/memory"
 	"github.com/ortuman/jackal/stream"
 	"github.com/ortuman/jackal/xmpp"
 	"github.com/ortuman/jackal/xmpp/jid"
@@ -21,10 +24,12 @@ import (
 )
 
 func TestXEP0077_Matching(t *testing.T) {
+	r, s := setupTest("jackal.im")
+
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
-	x := New(&Config{}, nil, nil)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	// test MatchesIQ
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
@@ -36,24 +41,23 @@ func TestXEP0077_Matching(t *testing.T) {
 }
 
 func TestXEP0077_InvalidToJID(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	j1, _ := jid.New("romeo", "jackal.im", "balcony", true)
 	j2, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm1 := stream.NewMockC2S(uuid.New(), j1)
-	r.Bind(stm1)
+	r.Bind(context.Background(), stm1)
 
-	x := New(&Config{}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 	iq.SetFromJID(j1)
 	iq.SetToJID(j2.ToBareJID())
 	stm1.SetAuthenticated(true)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm1.ReceiveElement()
 	require.Equal(t, xmpp.ErrForbidden.Error(), elem.Error().Elements().All()[0].Name())
 
@@ -63,94 +67,91 @@ func TestXEP0077_InvalidToJID(t *testing.T) {
 }
 
 func TestXEP0077_NotAuthenticatedErrors(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	r.Bind(context.Background(), stm)
 
-	x := New(&Config{}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.ResultType)
 	iq.SetFromJID(j)
 	iq.SetToJID(j.ToBareJID())
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	iq.SetType(xmpp.GetType)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAllowed.Error(), elem.Error().Elements().All()[0].Name())
 
 	// allow registration...
-	x = New(&Config{AllowRegistration: true}, nil, r)
-	defer x.Shutdown()
+	x = New(&Config{AllowRegistration: true}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	q := xmpp.NewElementNamespace("query", registerNamespace)
 	q.AppendElement(xmpp.NewElementName("q2"))
 	iq.AppendElement(q)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	q.ClearElements()
 	iq.SetType(xmpp.SetType)
-	stm.SetBool(xep077RegisteredCtxKey, true)
+	stm.SetValue(xep077RegisteredCtxKey, true)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAcceptable.Error(), elem.Error().Elements().All()[0].Name())
 }
 
 func TestXEP0077_AuthenticatedErrors(t *testing.T) {
-	r, _, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	srvJid, _ := jid.New("", "jackal.im", "", true)
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	r.Bind(context.Background(), stm)
 
 	stm.SetAuthenticated(true)
 
-	x := New(&Config{}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.ResultType)
 	iq.SetFromJID(j)
 	iq.SetToJID(j.ToBareJID())
 	iq.SetToJID(srvJid)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	iq.SetType(xmpp.SetType)
 	iq.AppendElement(xmpp.NewElementNamespace("query", registerNamespace))
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 }
 
 func TestXEP0077_RegisterUser(t *testing.T) {
-	r, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	srvJid, _ := jid.New("", "jackal.im", "", true)
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	r.Bind(context.Background(), stm)
 
-	x := New(&Config{AllowRegistration: true}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{AllowRegistration: true}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.GetType)
 	iq.SetFromJID(j)
@@ -159,7 +160,7 @@ func TestXEP0077_RegisterUser(t *testing.T) {
 	q := xmpp.NewElementNamespace("query", registerNamespace)
 	iq.AppendElement(q)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	q2 := stm.ReceiveElement().Elements().ChildNamespace("query", registerNamespace)
 	require.NotNil(t, q2.Elements().Child("username"))
 	require.NotNil(t, q2.Elements().Child("password"))
@@ -171,50 +172,49 @@ func TestXEP0077_RegisterUser(t *testing.T) {
 
 	// empty fields
 	iq.SetType(xmpp.SetType)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 
 	// already existing user...
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	_ = s.UpsertUser(context.Background(), &model.User{Username: "ortuman", Password: "1234"})
 	username.SetText("ortuman")
 	password.SetText("5678")
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrConflict.Error(), elem.Error().Elements().All()[0].Name())
 
 	// storage error
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
 	username.SetText("juliet")
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 
-	usr, _ := storage.FetchUser("ortuman")
+	usr, _ := s.FetchUser(context.Background(), "ortuman")
 	require.NotNil(t, usr)
 }
 
 func TestXEP0077_CancelRegistration(t *testing.T) {
-	r, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	srvJid, _ := jid.New("", "jackal.im", "", true)
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S("abcd1234", j)
-	r.Bind(stm)
+	r.Bind(context.Background(), stm)
 
 	stm.SetAuthenticated(true)
 
-	x := New(&Config{}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	_ = s.UpsertUser(context.Background(), &model.User{Username: "ortuman", Password: "1234"})
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 	iq.SetFromJID(j)
@@ -224,51 +224,50 @@ func TestXEP0077_CancelRegistration(t *testing.T) {
 	q.AppendElement(xmpp.NewElementName("remove"))
 
 	iq.AppendElement(q)
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAllowed.Error(), elem.Error().Elements().All()[0].Name())
 
-	x = New(&Config{AllowCancel: true}, nil, r)
-	defer x.Shutdown()
+	x = New(&Config{AllowCancel: true}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
 	q.AppendElement(xmpp.NewElementName("remove2"))
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrBadRequest.Error(), elem.Error().Elements().All()[0].Name())
 	q.ClearElements()
 	q.AppendElement(xmpp.NewElementName("remove"))
 
 	// storage error
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 
-	usr, _ := storage.FetchUser("ortuman")
+	usr, _ := s.FetchUser(context.Background(), "ortuman")
 	require.Nil(t, usr)
 }
 
 func TestXEP0077_ChangePassword(t *testing.T) {
-	r, s, shutdown := setupTest("jackal.im")
-	defer shutdown()
+	r, s := setupTest("jackal.im")
 
 	srvJid, _ := jid.New("", "jackal.im", "", true)
 	j, _ := jid.New("ortuman", "jackal.im", "balcony", true)
 
 	stm := stream.NewMockC2S(uuid.New(), j)
-	r.Bind(stm)
+	r.Bind(context.Background(), stm)
 
 	stm.SetAuthenticated(true)
 
-	x := New(&Config{}, nil, r)
-	defer x.Shutdown()
+	x := New(&Config{}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
-	storage.InsertOrUpdateUser(&model.User{Username: "ortuman", Password: "1234"})
+	_ = s.UpsertUser(context.Background(), &model.User{Username: "ortuman", Password: "1234"})
 
 	iq := xmpp.NewIQType(uuid.New(), xmpp.SetType)
 	iq.SetFromJID(j)
@@ -283,19 +282,19 @@ func TestXEP0077_ChangePassword(t *testing.T) {
 	q.AppendElement(password)
 	iq.AppendElement(q)
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem := stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAllowed.Error(), elem.Error().Elements().All()[0].Name())
 
-	x = New(&Config{AllowChange: true}, nil, r)
-	defer x.Shutdown()
+	x = New(&Config{AllowChange: true}, nil, r, s)
+	defer func() { _ = x.Shutdown() }()
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAllowed.Error(), elem.Error().Elements().All()[0].Name())
 
 	username.SetText("ortuman")
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrNotAuthorized.Error(), elem.Error().Elements().All()[0].Name())
 
@@ -303,28 +302,28 @@ func TestXEP0077_ChangePassword(t *testing.T) {
 	stm.SetSecured(true)
 
 	// storage error
-	s.EnableMockedError()
-	x.ProcessIQ(iq)
+	memorystorage.EnableMockedError()
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ErrInternalServerError.Error(), elem.Error().Elements().All()[0].Name())
-	s.DisableMockedError()
+	memorystorage.DisableMockedError()
 
-	x.ProcessIQ(iq)
+	x.ProcessIQ(context.Background(), iq)
 	elem = stm.ReceiveElement()
 	require.Equal(t, xmpp.ResultType, elem.Type())
 
-	usr, _ := storage.FetchUser("ortuman")
+	usr, _ := s.FetchUser(context.Background(), "ortuman")
 	require.NotNil(t, usr)
 	require.Equal(t, "5678", usr.Password)
 }
 
-func setupTest(domain string) (*router.Router, *memstorage.Storage, func()) {
-	r, _ := router.New(&router.Config{
-		Hosts: []router.HostConfig{{Name: domain, Certificate: tls.Certificate{}}},
-	})
-	s := memstorage.New()
-	storage.Set(s)
-	return r, s, func() {
-		storage.Unset()
-	}
+func setupTest(domain string) (router.Router, *memorystorage.User) {
+	hosts, _ := host.New([]host.Config{{Name: domain, Certificate: tls.Certificate{}}})
+	userRep := memorystorage.NewUser()
+	r, _ := router.New(
+		hosts,
+		c2srouter.New(userRep, memorystorage.NewBlockList()),
+		nil,
+	)
+	return r, userRep
 }
